@@ -1,0 +1,113 @@
+import logging
+from pathlib import Path
+
+from llama_index.core.readers import StringIterableReader
+from llama_index.core.readers.base import BaseReader
+from llama_index.core.readers.json import JSONReader
+from llama_index.core.schema import Document
+
+logger = logging.getLogger(__name__)
+
+
+def _try_loading_included_file_formats() -> dict[str, type[BaseReader]]:
+    try:
+        from llama_index.readers.file.docs import (
+            DocxReader,
+            HWPReader,
+            PDFReader,
+        )
+        from llama_index.readers.file.epub import EpubReader
+        from llama_index.readers.file.image import ImageReader
+        from llama_index.readers.file.ipynb import IPYNBReader
+        from llama_index.readers.file.markdown import MarkdownReader
+        from llama_index.readers.file.mbox import MboxReader
+        from llama_index.readers.file.slides import PptxReader
+        from llama_index.readers.file.tabular import PandasCSVReader
+        from llama_index.readers.file.video_audio import VideoAudioReader
+    except ImportError as e:
+        raise ImportError("`llama-index-readers-file` package not found") from e
+
+    default_file_reader_cls: dict[str, type[BaseReader]] = {
+        ".hwp": HWPReader,
+        ".pdf": PDFReader,
+        ".docx": DocxReader,
+        ".pptx": PptxReader,
+        ".ppt": PptxReader,
+        ".pptm": PptxReader,
+        ".jpg": ImageReader,
+        ".png": ImageReader,
+        ".jpeg": ImageReader,
+        ".mp3": VideoAudioReader,
+        ".mp4": VideoAudioReader,
+        ".csv": PandasCSVReader,
+        ".epub": EpubReader,
+        ".md": MarkdownReader,
+        ".mbox": MboxReader,
+        ".ipynb": IPYNBReader,
+    }
+    return default_file_reader_cls
+
+
+FILE_READER_CLS = _try_loading_included_file_formats()
+FILE_READER_CLS.update(
+    {
+        ".json": JSONReader,
+    }
+)
+
+
+class IngestionHelper:
+    """Helper class to transform a file into a list of documents."""
+
+    @staticmethod
+    def transform_file_into_documents(
+        file_name: str, file_data: Path
+    ) -> list[Document]:
+        documents = IngestionHelper._load_file_to_documents(file_name, file_data)
+        if not documents:
+            return []
+
+        global_doc_id = documents[0].doc_id  # Ensure single doc_id for PDFs
+        for document in documents:
+            document.metadata["file_name"] = file_name
+            if Path(file_name).suffix == ".pdf":
+                document.metadata["doc_id"] = global_doc_id  # Assign consistent doc_id for PDFs
+
+        IngestionHelper._exclude_metadata(documents)
+        return documents
+
+    @staticmethod
+    def _load_file_to_documents(file_name: str, file_data: Path) -> list[Document]:
+        logger.debug("Transforming file_name=%s into documents", file_name)
+        extension = Path(file_name).suffix
+        reader_cls = FILE_READER_CLS.get(extension)
+
+        if reader_cls is None:
+            logger.debug(
+                "No reader found for extension=%s, using default string reader",
+                extension,
+            )
+            string_reader = StringIterableReader()
+            return string_reader.load_data([file_data.read_text()])
+
+        logger.debug("Specific reader found for extension=%s", extension)
+        reader = reader_cls()
+        documents = reader.load_data(file_data)
+
+        if extension == ".pdf":
+            logger.debug("Merging multiple PDF pages into a single document")
+            combined_text = "\n".join(doc.text for doc in documents)
+            documents = [Document(text=combined_text, metadata={"file_name": file_name})]
+
+        # Sanitize NUL bytes in text which can't be stored in Postgres
+        for doc in documents:
+            doc.text = doc.text.replace("\u0000", "")
+
+        return documents
+
+    @staticmethod
+    def _exclude_metadata(documents: list[Document]) -> None:
+        logger.debug("Excluding metadata from count=%s documents", len(documents))
+        for document in documents:
+            document.excluded_embed_metadata_keys = ["doc_id"]
+            document.excluded_llm_metadata_keys = ["file_name", "doc_id", "page_label"]

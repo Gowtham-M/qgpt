@@ -1,0 +1,72 @@
+
+*****************************************************
+Prompts (for BC - Recurring Billing):
+*****************************************************
+ 
+Prompt 1. what is recurring billing?
+ 
+Prompt 2. Source - Recurring Billing App.docx
+	English:	What is a billing record? Provide a detailed explanation, including its purpose, key components, and how it is used in Recurring Billing application 
+	Hindi:		बिलिंग रिकॉर्ड क्या है? इसके उद्देश्य, मुख्य घटक और इसे आवर्ती बिलिंग एप्लिकेशन में कैसे उपयोग किया जाता है, इस पर विस्तृत व्याख्या प्रदान करें।
+	Telugu:		బిల్లింగ్ రికార్డ్ అంటే ఏమిటి 
+				బిల్లింగ్ రికార్డ్ అంటే ఏమిటి? దాని ఉద్దేశ్యం, కీలకమైన అంశాలు మరియు రికరింగ్ బిల్లింగ్ అప్లికేషన్‌లో ఇది ఎలా ఉపయోగించబడుతుందో సహా ఒక సమగ్ర వివరణను అందించండి
+	Spanish: 	¿Qué es un registro de facturación? Proporcione una explicación detallada, incluido su propósito, componentes clave y cómo se usa en la aplicación de facturación recurrente
+
+Prompt 3. what are different Customer API Endpoints in recurring billing in detailed?
+
+Prompt 4. what are different Billing Schedule API Endpoints in recurring billing in detailed?
+
+Prompt 5. How to enable Azure AD Authentication in recurring billing?
+
+
+
+*****************************************************
+Prompts (for GLI Standards [Event Wagering Systems] - https://gaminglabs.com/gli-standards/#gli-11 :
+*****************************************************
+ 
+--> Doc: [English] GLI-33-Event-Wagering-Systems-v1.1-1.pdf
+
+Prompt 1.  General Standards & Compliance
+			1. What are the key technical standards outlined in GLI-33 for event wagering systems?
+			2. How does GLI-33 ensure compliance with international gaming regulations?
+				
+Prompt 2.  Security & Network Management			
+			1. What are the firewall and network security requirements for event wagering systems?
+			2. What cryptographic controls are required for protecting sensitive player and transaction data?
+ 
+Prompt 3.  Operational Compliance & Player Protection
+			1. What player protection measures are required under GLI-33? 
+			2. What are the requirements for responsible gaming and addiction prevention? 
+
+Prompt 4.  GLI-33 Event Wagering Systems (Version 1.1) Russian document
+			Какие основные технические требования предъявляются к системам размещения ставок на события согласно стандарту GLI-33?
+			(This prompt explores the core technical compliance requirements for event wagering systems, ensuring adherence to GLI-33)
+
+Prompt 5.  GLI-33 Event Wagering Systems (Version 1.1) Spanish document
+			¿Cuáles son los requisitos clave de GLI-33 para garantizar la seguridad y la integridad de los sistemas de apuestas de eventos?
+			(This prompt explores the core security measures, risk management, and fraud prevention guidelines)
+
+
+
+
+***************************************************** 
+Prompts (for Everi HR/ Operation, Business Conduct & Company - Policies) 
+*****************************************************
+ 
+Prompt 1.  Everi Dress Code Policy
+			- What are the key guidelines and restrictions in Everi’s dress code policy, including acceptable and prohibited attire? 
+			- How does Everi enforce its dress code policy, and what are the consequences for non-compliance? 
+
+Prompt 2.  Everi India Employee Handbook
+			- What are the key policies outlined in the Everi India Employee Handbook, including employment classifications, code of conduct, and benefits?
+			- What are the different types of leave and benefits offered to employees at Everi India, and what are the rules for availing them?
+
+Prompt 3.  Code of Business Conduct, Standards and Ethics document
+			- What are the key ethical principles outlined in Everi’s Code of Business Conduct, and how does the company ensure compliance?
+			- How does Everi define and handle conflicts of interest, and what are the rules regarding gifts, bribery, and fair competition?
+ 
+
+*****************************************************
+*****************************************************
+
+
