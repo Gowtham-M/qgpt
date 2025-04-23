@@ -10,6 +10,7 @@ from llama_index.core.callbacks import CallbackManager
 from llama_index.core.callbacks.global_handlers import create_global_handler
 from llama_index.core.settings import Settings as LlamaIndexSettings
 from pathlib import Path  # Update by kali
+from fastapi.middleware.cors import CORSMiddleware
 
 # Import API routers
 from everi_ai_qgpt_core.server.chat.chat_router import chat_router
@@ -20,6 +21,8 @@ from everi_ai_qgpt_core.server.health.health_router import health_router
 from everi_ai_qgpt_core.server.ingest.ingest_router import ingest_router
 from everi_ai_qgpt_core.server.recipes.summarize.summarize_router import summarize_router
 from everi_ai_qgpt_core.server.config.config_router import config_router
+from everi_ai_qgpt_core.server.gdrive.gdrive_router import gdrive_router
+from everi_ai_qgpt_core.server.onedrive.onedrive_router import onedrive_router
 from everi_ai_qgpt_core.settings.settings import Settings
 
 
@@ -35,6 +38,14 @@ def create_app(root_injector: Injector) -> FastAPI:
     # Initialize FastAPI app
     app = FastAPI(dependencies=[Depends(bind_injector_to_request)])
 
+    app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Replace with specific origins in production
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
     # Register API routers
     app.include_router(completions_router)
     app.include_router(chat_router)
@@ -44,6 +55,8 @@ def create_app(root_injector: Injector) -> FastAPI:
     app.include_router(embeddings_router)
     app.include_router(health_router)
     app.include_router(config_router)
+    app.include_router(gdrive_router)
+    app.include_router(onedrive_router)
 
     # Enable LlamaIndex Observability
     global_handler = create_global_handler("simple")
