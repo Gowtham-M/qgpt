@@ -50,7 +50,7 @@ class IngestResponse(BaseModel):
 class GoogleDriveClient:
     def __init__(self):
         # Load the client secret JSON file
-        json_file_path = "D:/driveconfig/client_secret_35945508936-avr7gcdr7msf1dt9ehlmbbdmsfcmdf4l.apps.googleusercontent.com.json"
+        json_file_path = "/home/srikar/QGPT_BE/QGPT/everi_ai_qgpt_core/tokenFolder/client_secret_35945508936-avr7gcdr7msf1dt9ehlmbbdmsfcmdf4l.apps.googleusercontent.com.json"
         with open(json_file_path, 'r') as f:
             data = json.load(f)
         self.config = GoogleDriveConfig(**data)
@@ -62,7 +62,7 @@ class GoogleDriveClient:
     def _build_service(self):
         # Check if token.json exists (stores user credentials after first login)
         credentials = None
-        token_path = "D:/driveconfig/token.json"
+        token_path = "/home/srikar/QGPT_BE/QGPT/everi_ai_qgpt_core/tokenFolder/token.json"
 
         if os.path.exists(token_path):
             credentials = Credentials.from_authorized_user_file(token_path, self.scopes)
