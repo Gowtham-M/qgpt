@@ -148,7 +148,7 @@ export const uploadFile = async (file: File) => {
 
   const formData = new FormData();
   formData.append("file", file);
-
+  console.log("151")
   try {
     const response = await axios.post(`${API_URL}/v1/ingest/file`, formData, {
       headers: { "Content-Type": "multipart/form-data" },
@@ -243,10 +243,10 @@ export const useChatHandlers = () => {
   const handleSendMessage = async (query?: string) => {
     const userQuery = query !== undefined ? query : input;
     if (!userQuery.trim() || messageLoading) return;
-    if (mode !== "Basic" && files.length === 0) {
-      alert("Please upload a file first.");
-      return;
-    }
+    // if (mode !== "Basic" && files.length === 0) {
+    //   alert("Please upload a file first.");
+    //   return;
+    // }
     setInput("");
 
     setMessages((prev) => [
@@ -579,6 +579,7 @@ export const useChatHandlers = () => {
     handleDeleteFile,
     API_URL,
     currentChatId,      // New: current chat id state
-    setCurrentChatId,   // New: setter for current chat id
+    setCurrentChatId,
+    refreshFiles,   // New: setter for current chat id
   };
 };

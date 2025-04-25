@@ -21,10 +21,23 @@ onedrive_router = APIRouter(prefix="/v1", dependencies=[Depends(authenticated)])
 
 @onedrive_router.get("/onedrive/injestfiles", summary="List files from Google Drive")
 async def injest_files_from_one_drive(request: Request):
-    # onedrive.authenticate()
-    files = onedrive.list_files()
-    for file in files:
-        logger.info("%s",file)
-        pass
+    token = onedrive.authenticate()
+    files = onedrive.list_and_preview_files(token)
+    file_ids = []
+    for item in files:
+        item_name = item.get('name')
+        item_id = item.get('id')
+        is_folder = 'folder' in item  # Recursively list contents of this folder
+        print(f"\n🔹 File: {item_name} (ID: {item_id})")
+        try:
+            file_content = onedrive.download_file(token['access_token'], item_id)
+            preview = onedrive.preview_file(file_content, item_name)
+            service = request.state.injector.get(IngestService)
+            ingested_documents = service.ingest_text(item_name, preview)
+            file_ids.append(item_id)
+            print(f"📄 Preview:\n{preview}\n")
+        except Exception as e:
+            print(f"❌ Could not preview file {item_name}: {e}")
+
     return "DOne"
  

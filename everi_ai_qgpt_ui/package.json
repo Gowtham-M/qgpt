@@ -4,6 +4,7 @@
   "private": true,
   "dependencies": {
     "@testing-library/react": "^13.4.0",
+    "antd": "^5.24.8",
     "axios": "^1.7.9",
     "bootstrap": "^5.3.3",
     "bootstrap-icons": "^1.11.3",

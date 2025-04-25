@@ -7,6 +7,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { Navbar, Container, Nav, Button } from "react-bootstrap";
 import QGPTSettingsModal, { QGPTSettings } from "./popup.tsx";
 import ChatSidebar from "./sidebar/ChatSidebar.tsx";
+import { Modal, Input, Alert } from "antd";
 import {
   FiCopy,
   FiArrowDownCircle,
@@ -26,10 +27,12 @@ import {
 } from "react-icons/fi";
 import EmailLogo from "./EmailLogo.tsx";
 import PromptPanel from "./PromptPanel.tsx";
+import GdriveImg from "./assets/gdrive.png";
+import OneDriveImg from "./assets/one-drive.png";
 import AdditionalInstructions from "./AdditionalInstructions.tsx";
 
-import Picture1 from "./Everi_QGPT_Logo.png";
-import icon from "./avatar-bot.ico"
+import Picture1 from "./Fisec_QGPT_Logo.png";
+import icon from "./avatar-bot.ico";
 
 // Load messages from localStorage by key mode and chatid
 function loadCachedMessages(keySuffix: string) {
@@ -51,7 +54,6 @@ function saveCachedMessages(messages: any, keySuffix: string) {
     console.error("Failed to store chat messages in localStorage", err);
   }
 }
-
 
 const Chat: React.FC = () => {
   const {
@@ -86,7 +88,8 @@ const Chat: React.FC = () => {
     handleDeleteFile,
     API_URL,
     currentChatId,
-    setCurrentChatId
+    setCurrentChatId,
+    refreshFiles,
   } = useChatHandlers();
 
   const [showLogout, setShowLogout] = useState(false);
@@ -96,7 +99,10 @@ const Chat: React.FC = () => {
   const [showInstructions, setShowInstructions] = useState(true);
   const [showScrollButton, setShowScrollButton] = useState(false);
   const responseBoxRef = useRef<HTMLDivElement>(null);
-
+  const [isGDriveModalOpen, setIsGDriveModalOpen] = useState(false);
+  const [gDriveApiKey, setGDriveApiKey] = useState("");
+  const [gDriveClientId, setGDriveClientId] = useState("");
+  const [credentialError, setCredentialError] = useState<string | null>(null);
 
   const handleSelectChat = (chat: { id: number; messages: any[] } | null) => {
     if (!chat) {
@@ -158,32 +164,43 @@ const Chat: React.FC = () => {
     }
   };
 
-  const [folders, setFolders] = useState<{
-    id: number;
-    name: string;
-    prompts: { id: number; name: string; content: string; description: string }[]
-  }[]>(() => {
+  const [folders, setFolders] = useState<
+    {
+      id: number;
+      name: string;
+      prompts: {
+        id: number;
+        name: string;
+        content: string;
+        description: string;
+      }[];
+    }[]
+  >(() => {
     const savedFolders = localStorage.getItem("folders");
     return savedFolders ? JSON.parse(savedFolders) : [];
   });
 
-  const [prompts, setPrompts] = useState<{
-    id: number;
-    name: string;
-    content: string;
-    description: string
-  }[]>(() => {
+  const [prompts, setPrompts] = useState<
+    {
+      id: number;
+      name: string;
+      content: string;
+      description: string;
+    }[]
+  >(() => {
     const savedPrompts = localStorage.getItem("prompts");
     return savedPrompts ? JSON.parse(savedPrompts) : [];
   });
 
-  const [totalPrompts, setTotalPrompts] = useState<{
-    id: number;
-    name: string;
-    content: string;
-    description: string;
-    path: string
-  }[]>(() => {
+  const [totalPrompts, setTotalPrompts] = useState<
+    {
+      id: number;
+      name: string;
+      content: string;
+      description: string;
+      path: string;
+    }[]
+  >(() => {
     const savedTotalPrompts = localStorage.getItem("totalPrompts");
     return savedTotalPrompts ? JSON.parse(savedTotalPrompts) : [];
   });
@@ -303,8 +320,6 @@ const Chat: React.FC = () => {
     }
   };
 
-
-
   useEffect(() => {
     if (!email) {
       navigate("/");
@@ -312,7 +327,8 @@ const Chat: React.FC = () => {
   }, [email, navigate]);
 
   useEffect(() => {
-    if (currentChatId !== null) { // Only load if a chat is selected
+    if (currentChatId !== null) {
+      // Only load if a chat is selected
       const cached = loadCachedMessages(`${mode}_${currentChatId}`);
       if (cached && cached.length > 0) {
         const withCacheFlag = cached.map((m: any) => ({
@@ -338,7 +354,6 @@ const Chat: React.FC = () => {
       saveCachedMessages(messages, `${mode}_${currentChatId}`);
     }
   }, [messages, currentChatId, mode]);
-
 
   useEffect(() => {
     const container = responseBoxRef.current;
@@ -427,71 +442,200 @@ const Chat: React.FC = () => {
   };
 
   // Mic implementation function i.e speech to text
- 
- 
- 
-const [isListening, setIsListening] = useState<boolean>(false);
-const [recognition, setRecognition] = useState<SpeechRecognition | null>(null);
- 
-useEffect(() => {
-  // Check for speech recognition support
-  if (!("webkitSpeechRecognition" in window || "SpeechRecognition" in window)) {
-    console.error("Speech recognition not supported in this browser");
-    return;
-  }
- 
-  // Define the SpeechRecognition type
-  const SpeechRecognition =
-    (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-  const recognitionInstance = new SpeechRecognition();
- 
-  recognitionInstance.continuous = false; // Stop when user stops speaking
-  recognitionInstance.interimResults = true; // Show real-time transcription
-  recognitionInstance.lang = "en-US"; // Set language
- 
-  recognitionInstance.onresult = (event: SpeechRecognitionEvent) => {
-    const transcript = Array.from(event.results)
-      .map((result) => result[0].transcript)
-      .join("");
- 
-    setInput(transcript); // Update input without causing a loop
-  };
- 
-  recognitionInstance.onend = () => {
-    setIsListening(false);
-    if (input.trim()) {
-      handleSendMessage(input);
-      setInput(""); // Clear input after sending
+
+  const [isListening, setIsListening] = useState<boolean>(false);
+  const [recognition, setRecognition] = useState<SpeechRecognition | null>(
+    null
+  );
+
+  useEffect(() => {
+    // Check for speech recognition support
+    if (
+      !("webkitSpeechRecognition" in window || "SpeechRecognition" in window)
+    ) {
+      console.error("Speech recognition not supported in this browser");
+      return;
+    }
+
+    // Define the SpeechRecognition type
+    const SpeechRecognition =
+      (window as any).SpeechRecognition ||
+      (window as any).webkitSpeechRecognition;
+    const recognitionInstance = new SpeechRecognition();
+
+    recognitionInstance.continuous = false; // Stop when user stops speaking
+    recognitionInstance.interimResults = true; // Show real-time transcription
+    recognitionInstance.lang = "en-US"; // Set language
+
+    recognitionInstance.onresult = (event: SpeechRecognitionEvent) => {
+      const transcript = Array.from(event.results)
+        .map((result) => result[0].transcript)
+        .join("");
+
+      setInput(transcript); // Update input without causing a loop
+    };
+
+    recognitionInstance.onend = () => {
+      setIsListening(false);
+      if (input.trim()) {
+        handleSendMessage(input);
+        setInput(""); // Clear input after sending
+      }
+    };
+
+    recognitionInstance.onerror = (event: SpeechRecognitionErrorEvent) => {
+      console.error("Speech recognition error:", event.error);
+      setIsListening(false);
+    };
+
+    setRecognition(recognitionInstance);
+
+    // Clean up the recognition instance on unmount
+    return () => {
+      recognitionInstance.abort();
+    };
+  }, []); // Run only once on mount
+
+  const toggleListening = () => {
+    if (!recognition) return;
+    if (isListening) {
+      recognition.stop();
+      setIsListening(false);
+    } else {
+      setInput(""); // Clear input before new speech
+      recognition.start();
+      setIsListening(true);
     }
   };
- 
-  recognitionInstance.onerror = (event: SpeechRecognitionErrorEvent) => {
-    console.error("Speech recognition error:", event.error);
-    setIsListening(false);
+
+  const checkGDriveCredentials = async (): Promise<boolean> => {
+    try {
+      // const response = await fetch(`${API_URL}/v1/drive/credentials`);
+      // if (!response.ok) throw new Error("Failed to check credentials");
+      // const data = await response.json();
+      // return data.hasCredentials;
+      return true;
+    } catch (error) {
+      console.error("Error checking GDrive credentials:", error);
+      return false;
+    }
   };
- 
-  setRecognition(recognitionInstance);
- 
-  // Clean up the recognition instance on unmount
-  return () => {
-    recognitionInstance.abort();
+
+  const checkOneDriveCredentials = async (): Promise<boolean> => {
+    try {
+      // const response = await fetch(`${API_URL}/v1/drive/credentials`);
+      // if (!response.ok) throw new Error("Failed to check credentials");
+      // const data = await response.json();
+      // return data.hasCredentials;
+      return false;
+    } catch (error) {
+      console.error("Error checking GDrive credentials:", error);
+      return false;
+    }
   };
-}, []); // Run only once on mount
- 
-const toggleListening = () => {
-  if (!recognition) return;
-  if (isListening) {
-    recognition.stop();
-    setIsListening(false);
-  } else {
-    setInput(""); // Clear input before new speech
-    recognition.start();
-    setIsListening(true);
-  }
-};
+
+  const handleGDriveClick = async (): Promise<void> => {
+    try {
+      const hasCredentials = await checkGDriveCredentials();
+      if (!hasCredentials) {
+        // Show modal if credentials are missing
+        setIsGDriveModalOpen(true);
+        return;
+      }
+      const response = await fetch(`${API_URL}/v1/drive/injestfiles`);
+      if (!response.ok) throw new Error("GDrive request failed");
+      refreshFiles(); // Refresh files after successful request
+    } catch (error) {
+      console.error("Error triggering GDrive:", error);
+    }
+  };
+
+  const handleGDriveModalSubmit = async (): Promise<void> => {
+    if (!gDriveApiKey || !gDriveClientId) {
+      setCredentialError("Please enter both API Key and Client ID.");
+      return;
+    }
+
+    const success = await saveGDriveCredentials();
+    if (success) {
+      // Close modal, clear inputs, and proceed with ingestion
+      setIsGDriveModalOpen(false);
+      setGDriveApiKey("");
+      setGDriveClientId("");
+      setCredentialError(null);
+      // Trigger file ingestion
+      const response = await fetch(`${API_URL}/v1/drive/injestfiles`);
+      if (!response.ok) throw new Error("GDrive request failed");
+      await refreshFiles();
+    }
+  };
+
+  const handleOneDriveClick = async (): Promise<void> => {
+    try {
+      const hasCredentials = await checkOneDriveCredentials();
+      if (!hasCredentials) {
+        // Show modal if credentials are missing
+        setIsGDriveModalOpen(true);
+        return;
+      }
+      const response = await fetch(`${API_URL}v1/onedrive/injestfiles`);
+      if (!response.ok) throw new Error("OneDrive request failed");
+      refreshFiles();
+    } catch (error) {
+      console.error("Error triggering OneDrive:", error);
+    }
+  };
 
   return (
     <div className="chat-container">
+      <Modal
+        title="Enter Drive Credentials"
+        open={isGDriveModalOpen}
+        onCancel={() => {
+          setIsGDriveModalOpen(false);
+          setGDriveApiKey("");
+          setGDriveClientId("");
+          setCredentialError(null);
+        }}
+        footer={[
+          <Button
+            key="cancel"
+            onClick={() => {
+              setIsGDriveModalOpen(false);
+              setGDriveApiKey("");
+              setGDriveClientId("");
+              setCredentialError(null);
+            }}
+          >
+            Cancel
+          </Button>,
+          <Button key="submit" type="primary" onClick={handleGDriveModalSubmit}>
+            Save and Ingest
+          </Button>,
+        ]}
+      >
+        <div style={{ marginBottom: "16px" }}>
+          <label htmlFor="gDriveApiKey">API Key</label>
+          <Input
+            id="gDriveApiKey"
+            value={gDriveApiKey}
+            onChange={(e) => setGDriveApiKey(e.target.value)}
+            placeholder="Enter  Drive API Key"
+          />
+        </div>
+        <div style={{ marginBottom: "16px" }}>
+          <label htmlFor="gDriveClientId">Client ID</label>
+          <Input
+            id="gDriveClientId"
+            value={gDriveClientId}
+            onChange={(e) => setGDriveClientId(e.target.value)}
+            placeholder="Enter  Drive Client ID"
+          />
+        </div>
+        {credentialError && (
+          <Alert message={credentialError} type="error" showIcon />
+        )}
+      </Modal>
       <Navbar
         bg="white"
         variant="light"
@@ -509,7 +653,11 @@ const toggleListening = () => {
                 <EmailLogo email={email} />
               </span>
             </Nav.Link>
-            <Button variant="danger" onClick={handleLogout} className="ml-3 btn-logout">
+            <Button
+              variant="danger"
+              onClick={handleLogout}
+              className="ml-3 btn-logout"
+            >
               Logout
             </Button>
           </Nav>
@@ -518,14 +666,23 @@ const toggleListening = () => {
 
       <div className="main-container">
         {/* Left Panel */}
-        <div className={`left-panel ${sidebarLeftHidden ? "hidden" : ""}`} id="left-panel">
+        <div
+          className={`left-panel ${sidebarLeftHidden ? "hidden" : ""}`}
+          id="left-panel"
+        >
           <div className="chat-mode">
             <div className="heading">
               <label>
                 <strong>Chat Mode</strong>
               </label>
             </div>
-            <select id="dropdown-mode" name="mode" value={mode} onChange={(e) => handleModeChange(e.target.value)} disabled={messageLoading} >
+            <select
+              id="dropdown-mode"
+              name="mode"
+              value={mode}
+              onChange={(e) => handleModeChange(e.target.value)}
+              disabled={messageLoading}
+            >
               <option value="RAG">RAG Mode</option>
               <option value="Basic">Basic Chat</option>
               <option value="Search">Search Mode</option>
@@ -550,27 +707,81 @@ const toggleListening = () => {
               {mode === "ToolCalling" &&
                 "Tool Calling: Interact with external tools or APIs, deciding when and how to use them."}
             </div>
-            <input id="file-upload-input" type="file" ref={fileInputRef} style={{ display: "none" }} onChange={onFileChange} />
-            <button className="btn secondary upload-files" onClick={() => fileInputRef.current?.click()}>
+            <input
+              id="file-upload-input"
+              type="file"
+              ref={fileInputRef}
+              style={{ display: "none" }}
+              onChange={onFileChange}
+            />
+            <button
+              className="btn secondary upload-files"
+              onClick={() => fileInputRef.current?.click()}
+            >
               Upload
             </button>
+          </div>
+          <div style={{ display: "flex", gap: "20px", alignItems: "center" }}>
+            <div
+              onClick={handleGDriveClick}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                cursor: "pointer",
+              }}
+            >
+              <img
+                src={GdriveImg}
+                alt="Google Drive"
+                style={{ height: "30px", marginRight: "5px" }}
+              />
+            </div>
+            <div
+              onClick={handleOneDriveClick}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                cursor: "pointer",
+              }}
+            >
+              <img
+                src={OneDriveImg}
+                alt="One Drive"
+                style={{ height: "30px", marginRight: "5px" }}
+              />
+            </div>
           </div>
 
           <div className="ingested-files">
             <div className="d-flex justify-content-between align-items-center">
               <strong>Ingested Files</strong>
               <div className="d-flex align-items-center">
-                <button className="btn btn-link p-0" onClick={handleToggleSelectAll} disabled={files.length === 0}
-                  title={selectedFiles.length === files.length ? "Deselect All" : "Select All"} >
+                <button
+                  className="btn btn-link p-0"
+                  onClick={handleToggleSelectAll}
+                  disabled={files.length === 0}
+                  title={
+                    selectedFiles.length === files.length
+                      ? "Deselect All"
+                      : "Select All"
+                  }
+                >
                   {selectedFiles.length === files.length ? (
                     <FiCheckSquare size={16} style={{ color: "black" }} />
                   ) : (
                     <FiSquare size={16} style={{ color: "black" }} />
                   )}
                 </button>
-                <button className="btn btn-link p-0 ml-2" onClick={handleDeleteSelectedFiles} disabled={selectedFiles.length === 0}
-                  title="Delete Selected File(s)" >
-                  <FiTrash2 size={16} style={{ color: "red", marginLeft: "14px" }} />
+                <button
+                  className="btn btn-link p-0 ml-2"
+                  onClick={handleDeleteSelectedFiles}
+                  disabled={selectedFiles.length === 0}
+                  title="Delete Selected File(s)"
+                >
+                  <FiTrash2
+                    size={16}
+                    style={{ color: "red", marginLeft: "14px" }}
+                  />
                 </button>
               </div>
             </div>
@@ -583,7 +794,10 @@ const toggleListening = () => {
             ) : files.length > 0 ? (
               <ul className="files-listed">
                 {files.map((file, idx) => (
-                  <li key={idx} className="file-item d-flex align-items-center justify-content-between">
+                  <li
+                    key={idx}
+                    className="file-item d-flex align-items-center justify-content-between"
+                  >
                     <div className="d-flex align-items-center">
                       <input
                         type="checkbox"
@@ -595,7 +809,11 @@ const toggleListening = () => {
                         {file.file_name}
                       </span>
                     </div>
-                    <button className="btn btn-link p-0" onClick={() => handleDeleteFile(file.doc_id)} title="Delete this file" >
+                    <button
+                      className="btn btn-link p-0"
+                      onClick={() => handleDeleteFile(file.doc_id)}
+                      title="Delete this file"
+                    >
                       <FiTrash2 size={16} style={{ color: "red" }} />
                     </button>
                   </li>
@@ -621,46 +839,113 @@ const toggleListening = () => {
             </div>
           </div>
           {/* Render the ChatSidebar */}
-          <ChatSidebar mode={mode} currentChatId={currentChatId} onSelectChat={handleSelectChat} />
+          <ChatSidebar
+            mode={mode}
+            currentChatId={currentChatId}
+            onSelectChat={handleSelectChat}
+          />
         </div>
 
         {/* Center Panel */}
-        <div id="center-panel" className={`center-panel ${!sidebarLeftHidden && !sidebarRightHidden 
-        ? "full-width"
-        : !sidebarLeftHidden || !sidebarRightHidden ? "expended" : "" }`}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%" }}>
+        <div
+          id="center-panel"
+          className={`center-panel ${
+            !sidebarLeftHidden && !sidebarRightHidden
+              ? "full-width"
+              : !sidebarLeftHidden || !sidebarRightHidden
+              ? "expended"
+              : ""
+          }`}
+        >
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              width: "100%",
+            }}
+          >
             <div style={{ textAlign: "left" }}>
-              <button id="sidebarLeft-toggle" className="toggle-btn" onClick={toggleSidebarLeft}>
-                {sidebarLeftHidden ? <FiArrowRight size={16} /> : <FiArrowLeft size={16} />}
+              <button
+                id="sidebarLeft-toggle"
+                className="toggle-btn"
+                onClick={toggleSidebarLeft}
+              >
+                {sidebarLeftHidden ? (
+                  <FiArrowRight size={16} />
+                ) : (
+                  <FiArrowLeft size={16} />
+                )}
               </button>
             </div>
             <div style={{ textAlign: "right" }}>
-              <button id="sidebarRight-toggle" className="toggle-btn" onClick={toggleSidebarRight}>
-                {sidebarRightHidden ? <FiArrowLeft size={16} /> : <FiArrowRight size={16} />}
+              <button
+                id="sidebarRight-toggle"
+                className="toggle-btn"
+                onClick={toggleSidebarRight}
+              >
+                {sidebarRightHidden ? (
+                  <FiArrowLeft size={16} />
+                ) : (
+                  <FiArrowRight size={16} />
+                )}
               </button>
             </div>
           </div>
-          <div className="logo" style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
-            <span title="LLM Model"><FiMonitor style={{ marginRight: "4px" }} /> : {qgptSettings.llmModel}</span> |
-            <span title="Embedding Model"><FiMonitor style={{ marginRight: "4px" }} /> : {qgptSettings.embeddingModel}</span> |
-            <span title="Set Temperature"><FiThermometer style={{ marginRight: "4px" }} /> : {qgptSettings.temperature}</span> |
-            <span title="Response size"><FiMaximize style={{ marginRight: "4px" }} /> : {qgptSettings.size}</span>
-
-            <button title="QGPT Settings" className="btn secondary settings-btn" onClick={() => setShowSettings(true)}>
+          <div
+            className="logo"
+            style={{ display: "flex", alignItems: "center", gap: "1rem" }}
+          >
+            <span title="LLM Model">
+              <FiMonitor style={{ marginRight: "4px" }} /> :{" "}
+              {qgptSettings.llmModel}
+            </span>{" "}
+            |
+            <span title="Embedding Model">
+              <FiMonitor style={{ marginRight: "4px" }} /> :{" "}
+              {qgptSettings.embeddingModel}
+            </span>{" "}
+            |
+            <span title="Set Temperature">
+              <FiThermometer style={{ marginRight: "4px" }} /> :{" "}
+              {qgptSettings.temperature}
+            </span>{" "}
+            |
+            <span title="Response size">
+              <FiMaximize style={{ marginRight: "4px" }} /> :{" "}
+              {qgptSettings.size}
+            </span>
+            <button
+              title="QGPT Settings"
+              className="btn secondary settings-btn"
+              onClick={() => setShowSettings(true)}
+            >
               <FiSettings size={18} />
             </button>
           </div>
           <div className="chat-box">
             {messages.length === 0 ? (
               <div className="hi-text" id="hiText">
-                {currentChatId !== null ? "How can I help you today?" : "Select a chat or create one first"}
+                {currentChatId !== null
+                  ? "How can I help you today?"
+                  : "Select a chat or create one first"}
               </div>
-
             ) : (
-              <div className="responseText" ref={responseBoxRef} style={{ whiteSpace: "pre-wrap", padding: "10px", }} >
+              <div
+                className="responseText"
+                ref={responseBoxRef}
+                style={{ whiteSpace: "pre-wrap", padding: "10px" }}
+              >
                 {messages.map((msg, idx) => (
-                  <div key={idx} className={`message ${msg.role === "user" ? "user-message" : "bot-message"}`}>
-                    {msg.role !== "user" && <img src={icon} alt="bot" className="bot-icon" />}
+                  <div
+                    key={idx}
+                    className={`message ${
+                      msg.role === "user" ? "user-message" : "bot-message"
+                    }`}
+                  >
+                    {msg.role !== "user" && (
+                      <img src={icon} alt="bot" className="bot-icon" />
+                    )}
                     <div className="message-container">
                       <div className="message-content">
                         {msg.role === "user" ? (
@@ -670,10 +955,21 @@ const toggleListening = () => {
                             {msg.isCached ? (
                               <ReactShowdown markdown={msg.content} />
                             ) : (
-                              <StreamedResponse fullResponse={msg.content} speed={5} />
+                              <StreamedResponse
+                                fullResponse={msg.content}
+                                speed={5}
+                              />
                             )}
-                            <button className="copy-btn-assistant" onClick={() => handleCopy(idx, msg.content)} title="Copy assistant message" >
-                              {copiedMessageId === idx ? <FiCheck size={16} color="green" /> : <FiCopy size={16} />}
+                            <button
+                              className="copy-btn-assistant"
+                              onClick={() => handleCopy(idx, msg.content)}
+                              title="Copy assistant message"
+                            >
+                              {copiedMessageId === idx ? (
+                                <FiCheck size={16} color="green" />
+                              ) : (
+                                <FiCopy size={16} />
+                              )}
                             </button>
                           </div>
                         )}
@@ -696,45 +992,81 @@ const toggleListening = () => {
             {/* Chat Input Section */}
             <div className="chat-query-input">
               <div className="input-container">
-                <textarea id="chatInput" placeholder="Type a message..." rows={1} value={input} disabled={!currentChatId}
-                  onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => {
+                <textarea
+                  id="chatInput"
+                  placeholder="Type a message..."
+                  rows={1}
+                  value={input}
+                  disabled={!currentChatId}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={(e) => {
                     if (e.key === "Enter" && !e.shiftKey) {
                       e.preventDefault();
                       handleSendMessage();
                     }
                   }}
-                  style={{ overflowY: "scroll", height: "80px", scrollbarWidth: "none" }} ></textarea>
-                  {/* Mic Button for Speech-to-Text */}
-                   <button
-                    className="mic-btn"
-                    title="Start voice input"
-                    onClick={toggleListening}
-                  >
-                    {isListening ? <FiMicOff size={18} /> : <FiMic size={18} />}
-                  </button> 
-                <button className="chat-send-btn"  onClick={() => (messageLoading ? handleStopMessage() : handleSendMessage())}>
+                  style={{
+                    overflowY: "scroll",
+                    height: "80px",
+                    scrollbarWidth: "none",
+                  }}
+                ></textarea>
+                {/* Mic Button for Speech-to-Text */}
+                <button
+                  className="mic-btn"
+                  title="Start voice input"
+                  onClick={toggleListening}
+                >
+                  {isListening ? <FiMicOff size={18} /> : <FiMic size={18} />}
+                </button>
+                <button
+                  className="chat-send-btn"
+                  onClick={() =>
+                    messageLoading ? handleStopMessage() : handleSendMessage()
+                  }
+                >
                   {messageLoading ? "■" : "↑"}
                 </button>
               </div>
               <div className="buttons primary">
-                <button className="btn primary retry" onClick={handleRetry} disabled={messageLoading}>
+                <button
+                  className="btn primary retry"
+                  onClick={handleRetry}
+                  disabled={messageLoading}
+                >
                   🔄 Retry
                 </button>
-                <button className="btn primary" onClick={handleUndo} disabled={messageLoading}>
+                <button
+                  className="btn primary"
+                  onClick={handleUndo}
+                  disabled={messageLoading}
+                >
                   ↩️ Undo
                 </button>
-                <button className="btn primary clear" onClick={handleClearChat} disabled={messageLoading}>
+                <button
+                  className="btn primary clear"
+                  onClick={handleClearChat}
+                  disabled={messageLoading}
+                >
                   🗑️ Clear
                 </button>
               </div>
               <div className="input-container">
                 <div className="expandable-wrapper">
-                  <button className="expandable-btn" onClick={() => setShowInstructions(!showInstructions)}>
-                    {showInstructions ? "▼ Hide Additional Instructions" : "▶ Show Additional Instructions"}
+                  <button
+                    className="expandable-btn"
+                    onClick={() => setShowInstructions(!showInstructions)}
+                  >
+                    {showInstructions
+                      ? "▼ Hide Additional Instructions"
+                      : "▶ Show Additional Instructions"}
                   </button>
                   {showInstructions && (
-                    <AdditionalInstructions systemPromptInput={systemPromptInput} setSystemPromptInput={setSystemPromptInput} prompts={totalPrompts} />
-
+                    <AdditionalInstructions
+                      systemPromptInput={systemPromptInput}
+                      setSystemPromptInput={setSystemPromptInput}
+                      prompts={totalPrompts}
+                    />
                   )}
                 </div>
               </div>
@@ -742,10 +1074,23 @@ const toggleListening = () => {
           </div>
         </div>
         {/* Right Panel */}
-        <div className={`right-panel ${sidebarRightHidden ? "hidden" : ""}`} id="right-panel">
-          <PromptPanel prompts={prompts} folders={folders} totalPrompts={totalPrompts} setTotalPrompts={setTotalPrompts} // Added this
-            addFolder={addFolder} addPrompt={addPrompt} addPromptToFolder={addPromptToFolder} updatePrompt={updatePrompt} updateFolder={updateFolder}
-            deletePrompt={deletePrompt} deleteFolder={deleteFolder} />
+        <div
+          className={`right-panel ${sidebarRightHidden ? "hidden" : ""}`}
+          id="right-panel"
+        >
+          <PromptPanel
+            prompts={prompts}
+            folders={folders}
+            totalPrompts={totalPrompts}
+            setTotalPrompts={setTotalPrompts} // Added this
+            addFolder={addFolder}
+            addPrompt={addPrompt}
+            addPromptToFolder={addPromptToFolder}
+            updatePrompt={updatePrompt}
+            updateFolder={updateFolder}
+            deletePrompt={deletePrompt}
+            deleteFolder={deleteFolder}
+          />
         </div>
       </div>
 
@@ -756,8 +1101,10 @@ const toggleListening = () => {
             alt="PrivateGPT"
             style={{ height: "70px", marginRight: "15px" }}
           />
-          <p className="footer-logo-text">QDL <br />
-            QDL Core Services<br />
+          <p className="footer-logo-text">
+            QDL <br />
+            QDL Core Services
+            <br />
           </p>
         </div>
         <a className="footer-zylon-link" href="https://www.fisecglobal.net">
