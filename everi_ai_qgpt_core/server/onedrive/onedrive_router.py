@@ -21,7 +21,8 @@ onedrive_router = APIRouter(prefix="/v1", dependencies=[Depends(authenticated)])
 
 @onedrive_router.get("/onedrive/injestfiles", summary="List files from Google Drive")
 async def injest_files_from_one_drive(request: Request):
-    token = onedrive.authenticate()
+    # token = onedrive.authenticate()
+    token = onedrive.initialize()
     files = onedrive.list_and_preview_files(token)
     file_ids = []
     for item in files:
@@ -33,7 +34,7 @@ async def injest_files_from_one_drive(request: Request):
             file_content = onedrive.download_file(token['access_token'], item_id)
             preview = onedrive.preview_file(file_content, item_name)
             service = request.state.injector.get(IngestService)
-            ingested_documents = service.ingest_text(item_name, preview)
+            ingested_documents = service.ingest_text(item_name, file_content)
             file_ids.append(item_id)
             print(f"📄 Preview:\n{preview}\n")
         except Exception as e:

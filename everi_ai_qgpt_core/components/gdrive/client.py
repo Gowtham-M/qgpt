@@ -50,7 +50,7 @@ class IngestResponse(BaseModel):
 class GoogleDriveClient:
     def __init__(self):
         # Load the client secret JSON file
-        json_file_path = "/home/srikar/QGPT_BE/QGPT/everi_ai_qgpt_core/tokenFolder/client_secret_35945508936-avr7gcdr7msf1dt9ehlmbbdmsfcmdf4l.apps.googleusercontent.com.json"
+        json_file_path = "/home/srikar/QGPT_BE/QGPT/everi_ai_qgpt_core/tokenFolder/client_secret_35945508936-40bacqoreqi2egsee2cbdr3a9qu1sml5.apps.googleusercontent.com.json"
         with open(json_file_path, 'r') as f:
             data = json.load(f)
         self.config = GoogleDriveConfig(**data)

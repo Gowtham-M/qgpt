@@ -6,35 +6,139 @@ import webbrowser
 
 
 
+# class OneDriveClient:
+    # def __init__(self):
+    #     self.CLIENT_ID = "7126642c-5253-4fc7-8ba5-96ae765a4bd9"  # Replace with your actual client ID
+    #     self.AUTHORITY = "https://login.microsoftonline.com/common"
+    #     self.SCOPES = ["Files.Read"]
+    #     self.access_token = None
+ 
+    # # Authenticate using device code flow
+    # def authenticate(self):
+    #     app = msal.PublicClientApplication(self.CLIENT_ID, authority=self.AUTHORITY)
+    #     flow = app.initiate_device_flow(scopes=self.SCOPES)
+    
+    #     if "user_code" not in flow:
+    #         raise Exception("❌ Device code flow initiation failed:", flow)
+    
+    #     print("🔐 Visit the following URL and enter the code:")
+    #     print(f"👉 {flow['verification_uri']}")
+    #     print(f"🧾 Code: {flow['user_code']}")
+    #     webbrowser.open(flow['verification_uri'])
+    
+    #     result = app.acquire_token_by_device_flow(flow)
+    
+    #     if "access_token" in result:
+    #         self.access_token = result["access_token"]
+    #         print("✅ Authentication successful")
+    #         return result
+    #     else:
+    #         raise Exception("❌ Authentication failed:", result.get("error_description"))
+    
 class OneDriveClient:
-    def __init__(self):
+    def __init__(self, token_file="/home/srikar/QGPT_BE/QGPT/everi_ai_qgpt_core/tokenFolder/tokens.json"):
         self.CLIENT_ID = "7126642c-5253-4fc7-8ba5-96ae765a4bd9"  # Replace with your actual client ID
         self.AUTHORITY = "https://login.microsoftonline.com/common"
-        self.SCOPES = ["Files.Read"]
+        self.SCOPES = ["Files.Read", "offline_access"]  # Added offline_access for refresh tokens
         self.access_token = None
- 
+        self.refresh_token = None
+        self.token_file = token_file
+        self.app = msal.PublicClientApplication(self.CLIENT_ID, authority=self.AUTHORITY)
+
+    # Load tokens from file
+    def _load_tokens(self):
+        if os.path.exists(self.token_file):
+            try:
+                with open(self.token_file, "r") as f:
+                    tokens = json.load(f)
+                    return tokens.get("refresh_token")
+            except Exception as e:
+                print(f"⚠️ Error loading tokens: {e}")
+        return None
+
+    # Save tokens to file
+    def _save_tokens(self):
+        tokens = {"refresh_token": self.refresh_token}
+        try:
+            with open(self.token_file, "w") as f:
+                json.dump(tokens, f)
+            print(f"💾 Tokens saved to {self.token_file}")
+        except Exception as e:
+            print(f"⚠️ Error saving tokens: {e}")
+
     # Authenticate using device code flow
     def authenticate(self):
-        app = msal.PublicClientApplication(self.CLIENT_ID, authority=self.AUTHORITY)
-        flow = app.initiate_device_flow(scopes=self.SCOPES)
-    
-        if "user_code" not in flow:
-            raise Exception("❌ Device code flow initiation failed:", flow)
-    
-        print("🔐 Visit the following URL and enter the code:")
-        print(f"👉 {flow['verification_uri']}")
-        print(f"🧾 Code: {flow['user_code']}")
-        webbrowser.open(flow['verification_uri'])
-    
-        result = app.acquire_token_by_device_flow(flow)
-    
-        if "access_token" in result:
-            self.access_token = result["access_token"]
-            print("✅ Authentication successful")
-            return result
-        else:
-            raise Exception("❌ Authentication failed:", result.get("error_description"))
-    
+        try:
+            flow = self.app.initiate_device_flow(scopes=self.SCOPES)
+            
+            if "user_code" not in flow:
+                raise Exception(f"❌ Device code flow initiation failed: {flow}")
+            
+            print("🔐 Visit the following URL and enter the code:")
+            print(f"👉 {flow['verification_uri']}")
+            print(f"🧾 Code: {flow['user_code']}")
+            webbrowser.open(flow['verification_uri'])
+            
+            result = self.app.acquire_token_by_device_flow(flow)
+            
+            if "access_token" in result:
+                self.access_token = result["access_token"]
+                self.refresh_token = result.get("refresh_token")  # Store refresh token
+                print("✅ Authentication successful")
+                print(f"Access Token: {self.access_token}")
+                if self.refresh_token:
+                    print(f"Refresh Token: {self.refresh_token}")
+                    self._save_tokens()  # Save tokens to file
+                return result
+            else:
+                raise Exception(f"❌ Authentication failed: {result.get('error_description')}")
+        
+        except Exception as e:
+            print(f"Error: {e}")
+            raise
+
+    # Refresh access token using refresh token
+    def refresh_access_token(self):
+        if not self.refresh_token:
+            raise Exception("❌ No refresh token available. Please authenticate first.")
+        
+        try:
+            result = self.app.acquire_token_by_refresh_token(
+                refresh_token=self.refresh_token,
+                scopes=self.SCOPES  # Include offline_access to get a new refresh token
+            )
+            
+            if "access_token" in result:
+                self.access_token = result["access_token"]
+                self.refresh_token = result.get("refresh_token", self.refresh_token)  # Update refresh token if provided
+                print("✅ Access token refreshed successfully")
+                print(f"New Access Token: {self.access_token}")
+                if result.get("refresh_token"):
+                    print(f"New Refresh Token: {self.refresh_token}")
+                    self._save_tokens()  # Save new refresh token
+                return result
+            else:
+                raise Exception(f"❌ Token refresh failed: {result.get('error_description')}")
+        
+        except Exception as e:
+            print(f"Error: {e}")
+            raise
+
+    # Initialize authentication (try refresh token first, then authenticate if needed)
+    def initialize(self):
+        try:
+            # Try loading refresh token from file
+            self.refresh_token = self._load_tokens()
+            if self.refresh_token:
+                print("🔄 Attempting to refresh access token from stored refresh token...")
+                result = self.refresh_access_token()
+                return result
+            else:
+                print("ℹ️ No stored refresh token found. Initiating device code flow...")
+                return self.authenticate()
+        except Exception as e:
+            print(f"⚠️ Refresh failed: {e}. Initiating device code flow...")
+            return self.authenticate()
     # Download a file as bytes (no saving to disk)
     def download_file(self,access_token, file_id):
         headers = {'Authorization': f'Bearer {access_token}'}
@@ -45,6 +149,25 @@ class OneDriveClient:
             return io.BytesIO(response.content)
         else:
             raise Exception(f"❌ Failed to download file. Status code: {response.status_code}")
+    def clean_text(self, text):
+        """Normalize and clean text to handle encoding issues."""
+        # Normalize Unicode characters to their closest ASCII representation
+        normalized_text = unicodedata.normalize('NFKD', text).encode('ascii', 'ignore').decode('ascii')
+        return normalized_text
+
+    def read_docx_from_bytes(self, file_bytes):
+        """Read the content of a .docx file from a BytesIO object."""
+        try:
+            doc = Document(file_bytes)
+            full_text = []
+            for paragraph in doc.paragraphs:
+                if paragraph.text.strip():
+                    # Clean each paragraph to handle encoding issues
+                    cleaned_text = self.clean_text(paragraph.text)
+                    full_text.append(cleaned_text)
+            return '\n'.join(full_text)
+        except Exception as e:
+            raise Exception(f"❌ Failed to read .docx file: {str(e)}")
     
     # File preview helpers
     def preview_txt(self, file_bytes):
@@ -84,6 +207,8 @@ class OneDriveClient:
             return self.preview_csv(file_bytes)
         elif ext in ['xls', 'xlsx']:
             return self.preview_excel(file_bytes)
+        elif ext == 'docx':
+            return self.read_docx_from_bytes(file_bytes)
         else:
             return f"⚠️ Unsupported file type: .{ext}"
     
