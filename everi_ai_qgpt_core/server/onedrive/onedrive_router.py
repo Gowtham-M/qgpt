@@ -32,13 +32,25 @@ async def injest_files_from_one_drive(request: Request):
         print(f"\n🔹 File: {item_name} (ID: {item_id})")
         try:
             file_content = onedrive.download_file(token['access_token'], item_id)
+            print("35")
+            # Read and decode BytesIO content to string (assuming text file)
+            file_content.seek(0)  # Reset pointer to start of BytesIO
+            content_bytes = file_content.read()  # Get bytes
+            content_text = content_bytes.decode('utf-8')  # Decode to string
+            print("38")
             preview = onedrive.preview_file(file_content, item_name)
+            print("40")
+            print("file_content", content_text)
+            print("item_name", item_name)
             service = request.state.injector.get(IngestService)
-            ingested_documents = service.ingest_text(item_name, file_content)
+            # Pass the decoded text to ingest_text
+            ingested_documents = service.ingest_text(item_name, content_text)
+            print("42")
             file_ids.append(item_id)
+            print("45")
             print(f"📄 Preview:\n{preview}\n")
         except Exception as e:
-            print(f"❌ Could not preview file {item_name}: {e}")
+            print(f"❌ Could not process file {item_name}: {e}")
 
-    return "DOne"
+    return "Done"
  

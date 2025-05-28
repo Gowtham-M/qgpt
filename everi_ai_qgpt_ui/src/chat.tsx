@@ -527,7 +527,7 @@ const Chat: React.FC = () => {
       // if (!response.ok) throw new Error("Failed to check credentials");
       // const data = await response.json();
       // return data.hasCredentials;
-      return false;
+      return true;
     } catch (error) {
       console.error("Error checking GDrive credentials:", error);
       return false;
@@ -578,7 +578,7 @@ const Chat: React.FC = () => {
         setIsGDriveModalOpen(true);
         return;
       }
-      const response = await fetch(`${API_URL}v1/onedrive/injestfiles`);
+      const response = await fetch(`${API_URL}/v1/onedrive/injestfiles`);
       if (!response.ok) throw new Error("OneDrive request failed");
       refreshFiles();
     } catch (error) {
@@ -724,10 +724,19 @@ const Chat: React.FC = () => {
           <div style={{ display: "flex", gap: "20px", alignItems: "center" }}>
             <div
               onClick={handleGDriveClick}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = "#f0f0f0";
+                e.currentTarget.style.borderRadius = "4px";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = "transparent";
+              }}
               style={{
                 display: "flex",
                 alignItems: "center",
                 cursor: "pointer",
+                padding: "5px",
+                transition: "background-color 0.2s ease",
               }}
             >
               <img
@@ -738,10 +747,19 @@ const Chat: React.FC = () => {
             </div>
             <div
               onClick={handleOneDriveClick}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = "#f0f0f0";
+                e.currentTarget.style.borderRadius = "4px";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = "transparent";
+              }}
               style={{
                 display: "flex",
                 alignItems: "center",
                 cursor: "pointer",
+                padding: "5px",
+                transition: "background-color 0.2s ease",
               }}
             >
               <img

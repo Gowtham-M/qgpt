@@ -22,7 +22,7 @@ def _try_loading_included_file_formats() -> dict[str, type[BaseReader]]:
         from llama_index.readers.file.markdown import MarkdownReader
         from llama_index.readers.file.mbox import MboxReader
         from llama_index.readers.file.slides import PptxReader
-        from llama_index.readers.file.tabular import PandasCSVReader
+        from llama_index.readers.file.tabular import PandasCSVReader, PandasExcelReader
         from llama_index.readers.file.video_audio import VideoAudioReader
     except ImportError as e:
         raise ImportError("`llama-index-readers-file` package not found") from e
@@ -40,6 +40,8 @@ def _try_loading_included_file_formats() -> dict[str, type[BaseReader]]:
         ".mp3": VideoAudioReader,
         ".mp4": VideoAudioReader,
         ".csv": PandasCSVReader,
+        ".xlsx": PandasExcelReader,
+        ".xls": PandasExcelReader,
         ".epub": EpubReader,
         ".md": MarkdownReader,
         ".mbox": MboxReader,
@@ -79,20 +81,38 @@ class IngestionHelper:
     @staticmethod
     def _load_file_to_documents(file_name: str, file_data: Path) -> list[Document]:
         logger.debug("Transforming file_name=%s into documents", file_name)
-        extension = Path(file_name).suffix
+        extension = Path(file_name).suffix.lower()
         reader_cls = FILE_READER_CLS.get(extension)
-
         if reader_cls is None:
-            logger.debug(
-                "No reader found for extension=%s, using default string reader",
-                extension,
-            )
-            string_reader = StringIterableReader()
-            return string_reader.load_data([file_data.read_text()])
+            # Only use string reader for known text file types
+            text_extensions = {'.txt', '.log', '.json', '.xml', '.html', '.htm', '.css', '.js', '.py', '.java', '.c', '.cpp', '.h', '.cs', '.php', '.rb', '.pl', '.sh', '.bat', '.ps1', '.sql'}
+            if extension in text_extensions:
+                logger.debug(
+                    "No specific reader found for extension=%s, using default string reader",
+                    extension,
+                )
+                string_reader = StringIterableReader()
+                try:
+                    return string_reader.load_data([file_data.read_text('utf-8')])
+                except UnicodeError:
+                    logger.error(
+                        "Failed to read file as text. File may be binary or use a different encoding.",
+                    )
+                    raise ValueError(f"Failed to read file as text: {extension}")
+            else:
+                logger.error(
+                    "Unsupported file type: %s. Please convert to a supported format.",
+                    extension,
+                )
+                raise ValueError(f"Unsupported file type: {extension}")
 
         logger.debug("Specific reader found for extension=%s", extension)
         reader = reader_cls()
-        documents = reader.load_data(file_data)
+        try:
+            documents = reader.load_data(file_data)
+        except Exception as e:
+            logger.error(f"Failed to read file with {reader_cls.__name__}: {str(e)}")
+            raise
 
         if extension == ".pdf":
             logger.debug("Merging multiple PDF pages into a single document")
