@@ -77,19 +77,45 @@ class VectorStoreComponent:
                         "ChromaDB dependencies not found, install with `poetry install --extras vector-stores-chroma`"
                     ) from e
 
-                chroma_settings = ChromaSettings(anonymized_telemetry=False)
+                # Configure ChromaDB with optimized settings for disk storage
+                chroma_settings = ChromaSettings(
+                    anonymized_telemetry=False,
+                    allow_reset=True,
+                    is_persistent=True,
+                    persist_directory=str((everi_ai_qgpt_vectordb_qdrant_path / "chroma_db").absolute()),
+                    chroma_db_impl="duckdb+parquet",
+                    persist_batch_size=5000,  # Larger batch size for better disk write performance
+                )
+                
                 chroma_client = chromadb.PersistentClient(
                     path=str((everi_ai_qgpt_vectordb_qdrant_path / "chroma_db").absolute()),
                     settings=chroma_settings,
                 )
+
+                # Configure collection with optimized settings
+                collection_metadata = {
+                    "hnsw:space": "cosine",
+                    "hnsw:construction_ef": 80,  # Slightly reduced for faster indexing with lower dims
+                    "hnsw:search_ef": 50,  # Optimized for 256-dim vectors
+                    "hnsw:max_elements": 2000000,  # Increased max elements
+                    "hnsw:m": 16,  # Optimal for 256-dim, balancing speed and accuracy
+                    "hnsw:resizing_factor": 1.5  # More efficient memory allocation
+                }
+                
                 chroma_collection = chroma_client.get_or_create_collection(
-                    "make_this_parameterizable_per_api_call"
-                )  # TODO
+                    "make_this_parameterizable_per_api_call",
+                    metadata=collection_metadata
+                )
 
                 self.vector_store = typing.cast(
                     BasePydanticVectorStore,
                     BatchedChromaVectorStore(
-                        chroma_client=chroma_client, chroma_collection=chroma_collection
+                        chroma_client=chroma_client, 
+                        chroma_collection=chroma_collection,
+                        collection_kwargs={
+                            "optimize_for_disk": True,
+                            "batch_size": 5000  # Larger batches for better disk performance
+                        }
                     ),
                 )
 

@@ -1,0 +1,10 @@
+data:
+  everi_ai_qgpt_vectordb_qdrant_folder: "D:/qgpt_vectordb"  # Change this path to where you have more disk space
+
+# Embedding and vector store settings
+embedding:
+  embed_dim: 256  # Optimized dimension size for better performance
+  count_workers: 4  # Increased worker count for faster processing
+
+vectorstore:
+  database: "chroma"  # Using ChromaDB for efficient disk-based storage
