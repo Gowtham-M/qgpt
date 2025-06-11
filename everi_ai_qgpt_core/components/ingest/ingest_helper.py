@@ -8,6 +8,15 @@ from llama_index.core.schema import Document
 
 logger = logging.getLogger(__name__)
 
+# Try to import OCR processor
+try:
+    from everi_ai_qgpt_core.components.ingest.pdf_ocr_processor import EnhancedPDFReader
+    OCR_AVAILABLE = True
+    logger.info("PDF OCR processor available")
+except ImportError as e:
+    logger.warning(f"PDF OCR processor not available: {e}")
+    OCR_AVAILABLE = False
+
 
 def _try_loading_included_file_formats() -> dict[str, type[BaseReader]]:
     try:
@@ -73,15 +82,37 @@ class IngestionHelper:
         for document in documents:
             document.metadata["file_name"] = file_name
             if Path(file_name).suffix == ".pdf":
-                document.metadata["doc_id"] = global_doc_id  # Assign consistent doc_id for PDFs
-
-        IngestionHelper._exclude_metadata(documents)
+                document.metadata["doc_id"] = global_doc_id  # Assign consistent doc_id for PDFs        IngestionHelper._exclude_metadata(documents)
         return documents
 
     @staticmethod
     def _load_file_to_documents(file_name: str, file_data: Path) -> list[Document]:
         logger.debug("Transforming file_name=%s into documents", file_name)
         extension = Path(file_name).suffix.lower()
+        
+        # Special handling for PDFs with OCR
+        if extension == ".pdf" and OCR_AVAILABLE:
+            try:
+                logger.info("Using enhanced PDF processor with OCR for %s", file_name)
+                ocr_reader = EnhancedPDFReader(use_ocr=True)
+                documents = ocr_reader.load_data(file_data)
+                
+                # Ensure consistent doc_id for PDFs
+                if documents:
+                    global_doc_id = documents[0].doc_id
+                    for doc in documents:
+                        doc.metadata["doc_id"] = global_doc_id
+                        doc.metadata["file_name"] = file_name
+                        # Sanitize NUL bytes
+                        doc.text = doc.text.replace("\u0000", "")
+                
+                return documents
+                
+            except Exception as e:
+                logger.warning(f"OCR processing failed for PDF, falling back to regular processing: {e}")
+                # Fall through to regular processing
+        
+        # Regular file processing
         reader_cls = FILE_READER_CLS.get(extension)
         if reader_cls is None:
             # Only use string reader for known text file types

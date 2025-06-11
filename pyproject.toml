@@ -15,6 +15,10 @@ watchdog = "^4.0.1"
 transformers = "^4.44.2"
 docx2txt = "^0.8"
 cryptography = "^3.1"
+# OCR and Image Processing
+PyMuPDF = {version = "^1.24.0", optional = true}
+pytesseract = {version = "^0.3.13", optional = true}
+Pillow = {version = "^10.4.0", optional = true}
 # LlamaIndex core libs
 llama-index-core = ">=0.11.2,<0.12.0"
 llama-index-readers-file = "*"
@@ -62,6 +66,7 @@ retry-async = "^0.1.4"
 
 [tool.poetry.extras]
 #ui = ["gradio", "ffmpy"]
+ocr = ["PyMuPDF", "pytesseract", "Pillow"]
 llms-llama-cpp = ["llama-index-llms-llama-cpp"]
 llms-openai = ["llama-index-llms-openai"]
 llms-openai-like = ["llama-index-llms-openai-like"]

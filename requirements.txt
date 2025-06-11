@@ -49,6 +49,10 @@ fitz==0.0.1.dev2
 fonttools==4.55.8
 frozenlist==1.5.0
 fsspec==2025.3.0
+# OCR and Image Processing Dependencies
+PyMuPDF==1.24.14
+pytesseract==0.3.13
+Pillow==10.4.0
 google==3.0.0
 google-api-core==2.24.2
 google-api-python-client==2.167.0

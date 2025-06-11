@@ -23,6 +23,7 @@ from everi_ai_qgpt_core.server.recipes.summarize.summarize_router import summari
 from everi_ai_qgpt_core.server.config.config_router import config_router
 from everi_ai_qgpt_core.server.gdrive.gdrive_router import gdrive_router
 from everi_ai_qgpt_core.server.onedrive.onedrive_router import onedrive_router
+from everi_ai_qgpt_core.server.images.images_router import images_router
 from everi_ai_qgpt_core.settings.settings import Settings
 
 
@@ -57,6 +58,7 @@ def create_app(root_injector: Injector) -> FastAPI:
     app.include_router(config_router)
     app.include_router(gdrive_router)
     app.include_router(onedrive_router)
+    app.include_router(images_router)
 
     # Enable LlamaIndex Observability
     global_handler = create_global_handler("simple")
