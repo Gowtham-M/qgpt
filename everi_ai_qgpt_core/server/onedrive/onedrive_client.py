@@ -251,7 +251,7 @@ import os
 
 class OneDriveClient:
     # def __init__(self, token_file="/home/srikar/QGPT_BE/QGPT/everi_ai_qgpt_core/tokenFolder/tokens.json"):
-    def __init__(self, token_file="D:/qgptrepo/fisec/QGPT/everi_ai_qgpt_core/everi_ai_qgpt_core/tokenFolder/tokens.json"):
+    def __init__(self, token_file="/home/ubuntu/github/qgpt/everi_ai_qgpt_core/tokenFolder/tokens.json"):
         self.CLIENT_ID = "7126642c-5253-4fc7-8ba5-96ae765a4bd9"  # Replace with your actual client ID
         self.AUTHORITY = "https://login.microsoftonline.com/common"
         self.SCOPES = ["Files.Read"]  # Added offline_access for refresh tokens
