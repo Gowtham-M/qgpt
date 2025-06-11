@@ -25,11 +25,10 @@ logger = logging.getLogger(__name__)
 
 class PDFOCRProcessor:
     """Enhanced PDF processor that extracts text, images, and performs OCR."""    
-    def __init__(self, ollama_api_base: str = "http://localhost:11434", vision_model: str = "llava"):
+    def __init__(self, ollama_api_base: str = "http://localhost:11434", vision_model: str = "qwen2.5vl:3b"):
         self.ollama_api_base = ollama_api_base
         self.vision_model = vision_model
-        
-        # Configure Tesseract path on Windows
+          # Configure Tesseract path on Windows
         import platform
         if platform.system() == "Windows":
             tesseract_path = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
@@ -55,32 +54,28 @@ class PDFOCRProcessor:
                 text = page.get_text()
                 if text.strip():
                     page_content.append(f"Text content:\n{text}")
-                
-                # Extract images and process them
+                  # Extract images and process them
                 image_list = page.get_images()
                 
                 for img_index, img in enumerate(image_list):
                     try:
-                        # Extract image
+                        # Extract image using safe method
                         xref = img[0]
-                        pix = fitz.Pixmap(pdf_document, xref)
+                        pil_image = self._extract_image_safely(pdf_document, xref, img_index, page_num)
                         
-                        # Convert to PIL Image
-                        if pix.n - pix.alpha < 4:  # GRAY or RGB
-                            img_data = pix.tobytes("ppm")
-                            pil_image = Image.open(io.BytesIO(img_data))
-                            
-                            # Process image with OCR
-                            ocr_text = self._extract_text_with_ocr(pil_image)
-                            if ocr_text.strip():
-                                page_content.append(f"OCR extracted text from image {img_index + 1}:\n{ocr_text}")
-                            
-                            # Process image with Ollama vision model
-                            vision_description = self._analyze_image_with_ollama(pil_image)
-                            if vision_description:
-                                page_content.append(f"Image {img_index + 1} analysis:\n{vision_description}")
+                        if pil_image is None:
+                            logger.warning(f"Skipping image {img_index} on page {page_num}: Could not extract image")
+                            continue
                         
-                        pix = None  # Clean up
+                        # Process image with OCR
+                        ocr_text = self._extract_text_with_ocr(pil_image)
+                        if ocr_text.strip():
+                            page_content.append(f"OCR extracted text from image {img_index + 1}:\n{ocr_text}")
+                        
+                        # Process image with Ollama vision model
+                        vision_description = self._analyze_image_with_ollama(pil_image)
+                        if vision_description:
+                            page_content.append(f"Image {img_index + 1} analysis:\n{vision_description}")
                         
                     except Exception as e:
                         logger.warning(f"Error processing image {img_index} on page {page_num}: {e}")
@@ -175,6 +170,86 @@ class PDFOCRProcessor:
                 
         except Exception as e:
             logger.warning(f"Image analysis with Ollama failed: {e}")
+            return None
+    def _normalize_pdf_if_needed(self, file_path: Path) -> Path:
+        """Normalize PDF by re-saving it to fix colorspace and other issues."""
+        try:
+            # Create a temporary normalized PDF
+            normalized_path = file_path.parent / f"normalized_{file_path.name}"
+            
+            # Open and re-save the PDF with cleanup options
+            doc = fitz.open(file_path)
+            doc.save(
+                normalized_path,
+                garbage=3,      # Remove unused objects
+                clean=True,     # Clean up internal structures
+                deflate=True    # Compress streams
+            )
+            doc.close()
+            
+            logger.info(f"Created normalized PDF: {normalized_path}")
+            return normalized_path
+            
+        except Exception as e:
+            logger.warning(f"Failed to normalize PDF: {e}")
+            return file_path
+    def _extract_image_safely(self, pdf_document, xref, img_index, page_num):
+        """Safely extract image with multiple fallback methods."""
+        pil_image = None
+        
+        # Method 1: Try base image extraction first (most reliable)
+        try:
+            base_image = pdf_document.extract_image(xref)
+            if base_image and "image" in base_image:
+                image_data = base_image["image"]
+                pil_image = Image.open(io.BytesIO(image_data))
+                logger.debug(f"Successfully extracted image {img_index} on page {page_num} using base image method")
+                return pil_image
+        except Exception as e:
+            logger.debug(f"Base image extraction failed for image {img_index} on page {page_num}: {e}")
+        
+        # Method 2: Try pixmap extraction with error handling
+        try:
+            pix = fitz.Pixmap(pdf_document, xref)
+            
+            # Check if pixmap has valid colorspace
+            if pix.colorspace is None:
+                logger.warning(f"Pixmap has no colorspace for image {img_index} on page {page_num}")
+                pix = None
+                return None
+            
+            # Handle images with alpha channel
+            if pix.alpha:
+                try:
+                    # Remove alpha channel by converting to RGB
+                    pix = fitz.Pixmap(fitz.csRGB, pix)
+                except Exception as e:
+                    logger.warning(f"Failed to remove alpha channel from image {img_index} on page {page_num}: {e}")
+                    pix = None
+                    return None
+            
+            # Convert to PIL Image
+            if pix.n - pix.alpha < 4:  # GRAY or RGB
+                img_data = pix.tobytes("png")
+                pil_image = Image.open(io.BytesIO(img_data))
+            else:
+                # For CMYK images, convert to RGB first
+                try:
+                    pix_rgb = fitz.Pixmap(fitz.csRGB, pix)
+                    img_data = pix_rgb.tobytes("png")
+                    pil_image = Image.open(io.BytesIO(img_data))
+                    pix_rgb = None  # Clean up
+                except Exception as e:
+                    logger.warning(f"Failed to convert CMYK image {img_index} on page {page_num}: {e}")
+                    pix = None
+                    return None
+            
+            pix = None  # Clean up
+            logger.debug(f"Successfully extracted image {img_index} on page {page_num} using pixmap method")
+            return pil_image
+            
+        except Exception as e:
+            logger.warning(f"Pixmap extraction failed for image {img_index} on page {page_num}: {e}")
             return None
 
 
