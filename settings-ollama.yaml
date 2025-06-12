@@ -11,7 +11,7 @@ embedding:
   mode: ollama
 
 ollama:
-  llm_model: llama3
+  llm_model: llama3.2
   embedding_model: nomic-embed-text
   vision_model: llava # Vision model for image analysis
   api_base: http://localhost:11434

@@ -29,6 +29,7 @@ import PromptPanel from "./PromptPanel.tsx";
 import AdditionalInstructions from "./AdditionalInstructions.tsx";
 import GdriveImg from "./assets/gdrive.png";
 import OneDriveImg from "./assets/one-drive.png";
+import Fiseclogo from "./Fisec_QGPT_Logo.png";
 
 // TypeScript declarations for Speech Recognition API
 declare global {
