@@ -1,11 +1,11 @@
 import axios, { AxiosRequestConfig } from "axios";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 
 // =====================================
 // API FUNCTIONS
 // =====================================
 
-const API_URL = "http://52.9.216.105:8000";
+const API_URL = "http://localhost:8000";
 // const API_URL = "http://10.30.0.20:8000" // Ensure FastAPI is running
 
 // Send messages to backend (for RAG/Basic modes)
@@ -111,23 +111,44 @@ export const search_message = async (
 // Fetch ingested files
 export const fetchFiles = async () => {
   try {
+    console.log("UI API: fetchFiles called - making request to /v1/ingest/list");
     const response = await axios.get(`${API_URL}/v1/ingest/list`);
-    console.log("Fetched files:", response.data);
+    console.log("UI API: fetchFiles response received:", response.data);
     if (response.data && response.data.data) {
-      return response.data.data.map(
+      const mappedFiles = response.data.data.map(
         (file: { doc_id: string; doc_metadata: { file_name: string } }) => ({
           file_name: file.doc_metadata.file_name,
           doc_id: file.doc_id,
         })
-      );
+      );      console.log("UI API: fetchFiles mapped files:", mappedFiles);
+      return mappedFiles;
     } else {
+      console.warn("UI API: fetchFiles - no data in response");
       return [];
     }
   } catch (error) {
-    console.error("Error fetching files:", error);
+    console.error("UI API: Error fetching files:", error);
     return [];
   }
 };
+
+// Upload and analyze image
+export const uploadAndAnalyzeImage = async (file: File) => {
+  const formData = new FormData();
+  formData.append("file", file);
+  
+  try {
+    // FIX: Use correct backend route with /v1/images prefix
+    const response = await axios.post(`${API_URL}/v1/images/upload-and-analyze`, formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    return response.data;
+  } catch (error) {
+    console.error("Error uploading and analyzing image:", error);
+    throw error;
+  }
+};
+
 // Upload file
 export const uploadFile = async (file: File) => {
   const existingFiles = await fetchFiles();
@@ -170,6 +191,25 @@ export const deleteFile = async (docId: string) => {
     console.error("Error deleting file:", error);
     throw error;
   }
+};
+
+// Google Drive API functions
+export const listDriveFiles = async (limit: number = 5) => {
+  const response = await axios.get(`${API_URL}/v1/drive/files?limit=${limit}`);
+  return response.data;
+};
+
+export const ingestDriveFiles = async () => {
+  console.log("UI API: ingestDriveFiles called - making request to /v1/drive/injestfiles");
+  const response = await axios.get(`${API_URL}/v1/drive/injestfiles`);
+  console.log("UI API: ingestDriveFiles response received:", response.data);
+  return response.data;
+};
+
+// OneDrive API functions
+export const ingestOneDriveFiles = async () => {
+  const response = await axios.get(`${API_URL}/v1/onedrive/injestfiles`);
+  return response.data;
 };
 
 // =====================================
@@ -219,25 +259,25 @@ export const useChatHandlers = () => {
 
   // Ref for axios cancellation token
   const messageCancelTokenRef = useRef(axios.CancelToken.source());
-
-
   // refresh files list
-
-  const refreshFiles = async () => {
+  const refreshFiles = useCallback(async () => {
     try {
+      console.log("UI API: refreshFiles called");
       setFileLoading(true);
       const fileList = await fetchFiles();
+      console.log("UI API: refreshFiles - received file list:", fileList);
       setFiles(fileList);
+      console.log("UI API: refreshFiles - files state updated with", fileList.length, "files");
     } catch (error) {
-      console.error("Error fetching files:", error);
+      console.error("UI API: Error refreshing files:", error);
     } finally {
       setFileLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     refreshFiles();
-  }, []);
+  }, [refreshFiles]);
 
 
 
@@ -548,6 +588,172 @@ export const useChatHandlers = () => {
     }
   };
 
+  // ----------------------------
+  // Handler: image upload and analysis
+  // ----------------------------
+  const onImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      
+      // Check if it's an image file
+      if (!file.type.startsWith('image/')) {
+        console.error('Please select an image file');
+        return;
+      }
+      
+      try {
+        setFileLoading(true);
+        const response = await uploadAndAnalyzeImage(file);
+        
+        // Add the analysis result as a new message
+        if (response && response.analysis) {
+          const newMessage = {
+            role: "assistant",
+            content: `**Image Analysis:**\n\n${response.analysis}`
+          };
+          setMessages(prev => [...prev, newMessage]);
+        }
+        
+        console.log('Image uploaded and analyzed successfully:', response);
+      } catch (error) {
+        console.error("Error uploading and analyzing image:", error);
+        // You might want to show an error message to the user here
+      } finally {
+        setFileLoading(false);
+        // Clear the file input
+        if (e.target) {
+          e.target.value = '';
+        }
+      }
+    }
+  };
+
+  // ----------------------------
+  // Handler: image chat message (image upload + analysis)
+  // ----------------------------
+  const handleImageChatMessage = async (file: File, userPrompt?: string) => {
+    if (messageLoading) return;
+
+    // Optionally, show a thumbnail or filename in the user message
+    const userMessage: ChatMessage = {
+      role: "user",
+      content: userPrompt
+        ? `${userPrompt}<br/><em>Uploaded image: ${file.name}</em>`
+        : `<em>Uploaded image: ${file.name}</em>`,
+      isCached: false,
+    };
+    setMessages((prev) => [
+      ...prev,
+      userMessage,
+      { role: "assistant", content: '<div className="spinner2"></div>', isCached: false },
+    ]);
+    setMessageLoading(true);
+    messageCancelTokenRef.current = axios.CancelToken.source();
+    try {
+      const response = await uploadAndAnalyzeImage(file);
+      const analysis = response.analysis || "No analysis available.";
+      const imagePath = response.image_path;
+      const assistantMessage: ChatMessage = {
+        role: "assistant",
+        content:
+          `<strong>Image Analysis:</strong><br/>${analysis}` +
+          (imagePath ? `<br/><img src="${imagePath}" alt="Uploaded image" style="max-width:200px;"/>` : ""),
+        isCached: false,
+      };
+      setMessages((prev) => {
+        const newMsgs = [...prev];
+        newMsgs[newMsgs.length - 1] = assistantMessage;
+        return newMsgs;
+      });
+      // Return imagePath and analysis for use in imageChatState
+      return { imagePath, analysis };
+    } catch (error: any) {
+      if (axios.isCancel(error)) {
+        setMessages((prev) => {
+          const newMsgs = [...prev];
+          if (newMsgs[newMsgs.length - 1].role === "assistant") {
+            newMsgs.pop();
+          }
+          return newMsgs;
+        });
+      } else {
+        setMessages((prev) => {
+          const newMsgs = [...prev];
+          newMsgs[newMsgs.length - 1] = {
+            role: "assistant",
+            content: "Error analyzing image.",
+            isCached: false,
+          };
+          return newMsgs;
+        });
+      }
+      return { imagePath: undefined, analysis: undefined };
+    } finally {
+      setMessageLoading(false);
+    }
+  };
+  // ----------------------------
+  // Handler: Google Drive integration
+  // ----------------------------
+  const handleConnectGoogleDrive = async () => {
+    try {
+      setFileLoading(true);
+      const result = await ingestDriveFiles();
+      console.log('Google Drive files ingested:', result);
+      
+      // Add a small delay to ensure ingestion is complete
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      await refreshFiles(); // Refresh the file list after ingestion
+      
+      if (result.status === 'completed') {
+        if (result.ingested_count > 0) {
+          alert(`Successfully imported ${result.ingested_count} Google Drive files!${result.failed_count > 0 ? ` (${result.failed_count} files failed)` : ''}`);
+        } else {
+          alert('No Google Drive files were imported. Please check if you have any Google Docs files.');
+        }
+      } else {
+        alert('Google Drive files have been successfully imported!');
+      }
+    } catch (error) {
+      console.error('Error connecting to Google Drive:', error);
+      alert('Failed to connect to Google Drive. Please try again.');
+    } finally {
+      setFileLoading(false);
+    }
+  };
+
+  // ----------------------------
+  // Handler: OneDrive integration
+  // ----------------------------
+  const handleConnectOneDrive = async () => {
+    try {
+      setFileLoading(true);
+      const result = await ingestOneDriveFiles();
+      console.log('OneDrive files ingested:', result);
+      
+      // Add a small delay to ensure ingestion is complete
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      await refreshFiles(); // Refresh the file list after ingestion
+      
+      if (result.status === 'completed') {
+        if (result.ingested_count > 0) {
+          alert(`Successfully imported ${result.ingested_count} OneDrive files!${result.failed_count > 0 ? ` (${result.failed_count} files failed)` : ''}`);
+        } else {
+          alert('No OneDrive files were imported. Please check if you have any text files.');
+        }
+      } else {
+        alert('OneDrive files have been successfully imported!');
+      }
+    } catch (error) {
+      console.error('Error connecting to OneDrive:', error);
+      alert('Failed to connect to OneDrive. Please try again.');
+    } finally {
+      setFileLoading(false);
+    }
+  };
+
   return {
     messages,
     input,
@@ -567,9 +773,9 @@ export const useChatHandlers = () => {
     toggleFileSelection,
     handleDeselectFile,
     handleDeleteSelectedFiles,
-    handleDeleteAllFiles,
-    handleClearChat,
+    handleDeleteAllFiles,    handleClearChat,
     onFileChange,
+    onImageUpload,
     toggleSidebarLeft,
     toggleSidebarRight,
     handleStopMessage,
@@ -582,5 +788,8 @@ export const useChatHandlers = () => {
     currentChatId,      // New: current chat id state
     setCurrentChatId,
     refreshFiles,   // New: setter for current chat id
+    handleImageChatMessage,
+    handleConnectGoogleDrive,
+    handleConnectOneDrive,
   };
 };

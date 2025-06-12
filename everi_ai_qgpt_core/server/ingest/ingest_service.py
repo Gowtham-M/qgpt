@@ -46,18 +46,22 @@ class IngestService:
             embed_model=embedding_component.embedding_model,
             transformations=[node_parser, embedding_component.embedding_model],
             settings=settings(),
-        )
-
-    def _ingest_data(self, file_name: str, file_data: AnyStr) -> list[IngestedDoc]:
+        )   
+    def _ingest_data(self, file_name: str, file_data: AnyStr) -> list[IngestedDoc]: 
         logger.debug("Starting ingestion for file: %s, size: %s", file_name, len(file_data))
-
-        with tempfile.NamedTemporaryFile(delete=False) as tmp:
+        
+        with tempfile.NamedTemporaryFile(delete=False, mode='w', encoding='utf-8', suffix='.txt') as tmp:
             try:
                 path_to_tmp = Path(tmp.name)
                 if isinstance(file_data, bytes):
+                    # Close the text file and reopen in binary mode for bytes
+                    tmp.close()
                     path_to_tmp.write_bytes(file_data)
                 else:
-                    path_to_tmp.write_text(str(file_data))
+                    # Write text directly to the open file handle
+                    tmp.write(str(file_data))
+                    tmp.flush()  # Ensure data is written
+                    tmp.close()
                 
                 logger.debug("Temporary file created at: %s", path_to_tmp)
                 result = self.ingest_file(file_name, path_to_tmp)
@@ -65,10 +69,14 @@ class IngestService:
                 logger.debug("Ingestion result: %s", result)
                 return result
             finally:
-                tmp.close()
-                path_to_tmp.unlink()
+                # Make sure file is closed before unlinking
+                if not tmp.closed:
+                    tmp.close()
+                path_to_tmp.unlink(missing_ok=True)
 
+   
     def ingest_file(self, file_name: str, file_data: Path) -> list[IngestedDoc]:
+
         logger.info("Ingesting file: %s", file_name)
 
         documents = self.ingest_component.ingest(file_name, file_data)
@@ -78,9 +86,7 @@ class IngestService:
         for doc in documents:
             logger.debug("Processed Document ID: %s, Metadata: %s", doc.doc_id, doc.metadata)
 
-        return [IngestedDoc.from_document(document) for document in documents]
-
-
+        return [IngestedDoc.from_document(document) for document in documents]    
     def ingest_text(self, file_name: str, text: str) -> list[IngestedDoc]:
         logger.debug("Ingesting text data with file_name=%s", file_name)
         return self._ingest_data(file_name, text)
@@ -98,6 +104,7 @@ class IngestService:
         logger.info("Finished ingestion file_name=%s", [f[0] for f in files])
         return [IngestedDoc.from_document(document) for document in documents]
 
+    
     def list_ingested(self) -> list[IngestedDoc]:
         ingested_docs: list[IngestedDoc] = []
         try:

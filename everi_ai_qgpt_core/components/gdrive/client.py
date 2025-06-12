@@ -24,6 +24,7 @@ from everi_ai_qgpt_core.components.ingest.ingest_helper import IngestionHelper
 from everi_ai_qgpt_core.components.ingest.ingest_component  import SimpleIngestComponent
 from everi_ai_qgpt_core.server.ingest.ingest_service import IngestService
 from everi_ai_qgpt_core.server.ingest.model import IngestedDoc
+from everi_ai_qgpt_core.constants import PROJECT_ROOT_PATH
 
 import logging
 
@@ -47,24 +48,26 @@ class IngestResponse(BaseModel):
     model: Literal["private-gpt"]
     data: list[IngestedDoc]
 
-class GoogleDriveClient:
+class GoogleDriveClient:    
     def __init__(self):
-        # Load the client secret JSON file
+        # Load the client secret JSON file using project root path
         # json_file_path = "/home/srikar/QGPT_BE/QGPT/everi_ai_qgpt_core/tokenFolder/client_secret_35945508936-uothe1o4slnugbc3ghcjj4drqcnelvjh.apps.googleusercontent.com.json"
-        json_file_path = "/home/ubuntu/github/qgpt/everi_ai_qgpt_core/tokenFolder/client_secret_35945508936-uothe1o4slnugbc3ghcjj4drqcnelvjh.apps.googleusercontent.com.json"
+        # json_file_path = "/home/ubuntu/github/qgpt/everi_ai_qgpt_core/tokenFolder/client_secret_35945508936-uothe1o4slnugbc3ghcjj4drqcnelvjh.apps.googleusercontent.com.json"
+        json_file_path = PROJECT_ROOT_PATH / "everi_ai_qgpt_core" / "tokenFolder" / "client_secret_35945508936-uothe1o4slnugbc3ghcjj4drqcnelvjh.apps.googleusercontent.com.json"
         with open(json_file_path, 'r') as f:
             data = json.load(f)
         self.config = GoogleDriveConfig(**data)
         
         # Define scopes for Google Drive API
         self.scopes = ['https://www.googleapis.com/auth/drive.readonly']
-        self.service = self._build_service()
-
+        self.service = self._build_service()    
+    
     def _build_service(self):
         # Check if token.json exists (stores user credentials after first login)
         credentials = None
         # token_path = "/home/srikar/QGPT_BE/QGPT/everi_ai_qgpt_core/tokenFolder/token.json"
-        token_path = "/home/ubuntu/github/qgpt/everi_ai_qgpt_core/tokenFolder/token.json"
+        # token_path = "/home/ubuntu/github/qgpt/everi_ai_qgpt_core/tokenFolder/token.json"
+        token_path = PROJECT_ROOT_PATH / "everi_ai_qgpt_core" / "tokenFolder" / "token.json"
         if os.path.exists(token_path):
             credentials = Credentials.from_authorized_user_file(token_path, self.scopes)
 

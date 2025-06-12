@@ -70,19 +70,21 @@ FILE_READER_CLS.update(
 class IngestionHelper:
     """Helper class to transform a file into a list of documents."""
 
+   
     @staticmethod
     def transform_file_into_documents(
         file_name: str, file_data: Path
     ) -> list[Document]:
         documents = IngestionHelper._load_file_to_documents(file_name, file_data)
         if not documents:
-            return []
-
+            return []        
         global_doc_id = documents[0].doc_id  # Ensure single doc_id for PDFs
         for document in documents:
             document.metadata["file_name"] = file_name
             if Path(file_name).suffix == ".pdf":
-                document.metadata["doc_id"] = global_doc_id  # Assign consistent doc_id for PDFs        IngestionHelper._exclude_metadata(documents)
+                document.metadata["doc_id"] = global_doc_id  # Assign consistent doc_id for PDFs
+        
+        IngestionHelper._exclude_metadata(documents)
         return documents
 
     @staticmethod
@@ -107,7 +109,6 @@ class IngestionHelper:
                         doc.text = doc.text.replace("\u0000", "")
                 
                 return documents
-                
             except Exception as e:
                 logger.warning(f"OCR processing failed for PDF, falling back to regular processing: {e}")
                 # Fall through to regular processing
@@ -117,15 +118,27 @@ class IngestionHelper:
         if reader_cls is None:
             # Only use string reader for known text file types
             text_extensions = {'.txt', '.log', '.json', '.xml', '.html', '.htm', '.css', '.js', '.py', '.java', '.c', '.cpp', '.h', '.cs', '.php', '.rb', '.pl', '.sh', '.bat', '.ps1', '.sql'}
-            if extension in text_extensions:
+            # If no extension, treat as text file (common for Google Docs and similar content)
+            if extension in text_extensions or extension == "":
                 logger.debug(
                     "No specific reader found for extension=%s, using default string reader",
                     extension,
-                )
+                )               
                 string_reader = StringIterableReader()
                 try:
-                    return string_reader.load_data([file_data.read_text('utf-8')])
-                except UnicodeError:
+                    # Try UTF-8 first
+                    text_content = file_data.read_text('utf-8')
+                    return string_reader.load_data([text_content])
+                except UnicodeDecodeError as e:
+                    logger.warning(f"UTF-8 decoding failed for {file_name}, trying with error handling: {e}")
+                    try:
+                        # Try with error handling
+                        text_content = file_data.read_text('utf-8', errors='replace')
+                        return string_reader.load_data([text_content])
+                    except Exception as e2:
+                        logger.error(f"Failed to read file as text with error handling: {e2}")
+                        raise ValueError(f"Failed to read file as text: {extension}")
+                except Exception as e:
                     logger.error(
                         "Failed to read file as text. File may be binary or use a different encoding.",
                     )

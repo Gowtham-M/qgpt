@@ -1,17 +1,15 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useChatHandlers } from "./api.ts";
 import StreamedResponse from "./StreamedResponse.tsx";
 import ReactShowdown from "react-showdown";
 import "./style.css";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Navbar, Container, Nav, Button } from "react-bootstrap";
-import QGPTSettingsModal, { QGPTSettings } from "./popup.tsx";
+import QGPTSettingsModal from "./popup.tsx";
 import ChatSidebar from "./sidebar/ChatSidebar.tsx";
-import { Modal, Input, Alert } from "antd";
 import {
   FiCopy,
   FiArrowDownCircle,
-  FiMenu,
   FiArrowLeft,
   FiArrowRight,
   FiCheck,
@@ -24,15 +22,32 @@ import {
   FiSquare,
   FiMic,
   FiMicOff,
+  FiImage, // Add FiImage for image upload icon
 } from "react-icons/fi";
 import EmailLogo from "./EmailLogo.tsx";
 import PromptPanel from "./PromptPanel.tsx";
+import AdditionalInstructions from "./AdditionalInstructions.tsx";
 import GdriveImg from "./assets/gdrive.png";
 import OneDriveImg from "./assets/one-drive.png";
-import AdditionalInstructions from "./AdditionalInstructions.tsx";
 
-import Picture1 from "./Fisec_QGPT_Logo.png";
-import icon from "./avatar-bot.ico";
+// TypeScript declarations for Speech Recognition API
+declare global {
+  interface Window {
+    SpeechRecognition: any;
+    webkitSpeechRecognition: any;
+  }
+}
+
+interface SpeechRecognition extends EventTarget {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  start(): void;
+  stop(): void;
+  onresult: (event: any) => void;
+  onerror: (event: any) => void;
+  onend: () => void;
+}
 
 // Load messages from localStorage by key mode and chatid
 function loadCachedMessages(keySuffix: string) {
@@ -58,6 +73,7 @@ function saveCachedMessages(messages: any, keySuffix: string) {
 const Chat: React.FC = () => {
   const {
     messages,
+    setMessages, // <-- add this to the destructure
     input,
     setInput,
     mode,
@@ -75,21 +91,19 @@ const Chat: React.FC = () => {
     toggleFileSelection,
     handleDeselectFile,
     handleDeleteSelectedFiles,
-    handleDeleteAllFiles,
-    handleClearChat,
+    handleDeleteFile,
+    currentChatId,
+    setCurrentChatId,
     onFileChange,
     toggleSidebarLeft,
     toggleSidebarRight,
     handleStopMessage,
+    handleClearChat,
     systemPromptInput,
-    setSystemPromptInput,
-    setMessages,
+    setSystemPromptInput, // <-- add this to the destructure
     setSelectedFiles,
-    handleDeleteFile,
-    API_URL,
-    currentChatId,
-    setCurrentChatId,
-    refreshFiles,
+    handleConnectGoogleDrive,
+    handleConnectOneDrive,
   } = useChatHandlers();
 
   const [showLogout, setShowLogout] = useState(false);
@@ -99,71 +113,7 @@ const Chat: React.FC = () => {
   const [showInstructions, setShowInstructions] = useState(true);
   const [showScrollButton, setShowScrollButton] = useState(false);
   const responseBoxRef = useRef<HTMLDivElement>(null);
-  const [isGDriveModalOpen, setIsGDriveModalOpen] = useState(false);
-  const [gDriveApiKey, setGDriveApiKey] = useState("");
-  const [gDriveClientId, setGDriveClientId] = useState("");
-  const [credentialError, setCredentialError] = useState<string | null>(null);
-
-  const handleSelectChat = (chat: { id: number; messages: any[] } | null) => {
-    if (!chat) {
-      setMessages([]); // Handle null case with an empty array or fallback
-      setCurrentChatId(null); // Assuming null is a valid value for setCurrentChatId
-      return;
-    }
-    // Attempt to load stored messages for the selected chat:
-    const storedMessages = loadCachedMessages(`${mode}_${chat.id}`);
-    if (storedMessages) {
-      setMessages(storedMessages);
-    } else {
-      // If nothing is stored yet, use the chat’s default messages.
-      setMessages(chat.messages);
-    }
-    setCurrentChatId(chat.id);
-  };
-
-  // QGPT Settings state
-  const [qgptSettings, setQgptSettings] = useState<QGPTSettings>({
-    llmModel: "",
-    temperature: 1.0,
-    size: "M",
-    embeddingModel: "",
-  });
-
-  const [copiedMessageId, setCopiedMessageId] = useState<number | null>(null);
-  const [showSettings, setShowSettings] = useState(false);
-
-  // Fetch initial config from the API on mount
-  useEffect(() => {
-    fetch(`${API_URL}/v1/config`)
-      .then((res) => res.json())
-      .then((data) => {
-        setQgptSettings((prevSettings) => ({
-          ...prevSettings,
-          llmModel: data.llm_model,
-          embeddingModel: data.embedding_model,
-        }));
-      })
-      .catch((error) => console.error("Error fetching config:", error));
-  }, []);
-
-  // Function to update config via API and update local state/UI
-  const updateConfig = async (newSettings: QGPTSettings) => {
-    try {
-      await fetch(`${API_URL}/v1/config`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          llmModel: newSettings.llmModel,
-          embeddingModel: newSettings.embeddingModel,
-        }),
-      });
-      setQgptSettings(newSettings);
-      setShowSettings(false); // Close the modal after saving
-    } catch (error) {
-      console.error("Error updating config:", error);
-    }
-  };
-
+  const imageInputRef = useRef<HTMLInputElement>(null);
   const [folders, setFolders] = useState<
     {
       id: number;
@@ -204,10 +154,30 @@ const Chat: React.FC = () => {
     const savedTotalPrompts = localStorage.getItem("totalPrompts");
     return savedTotalPrompts ? JSON.parse(savedTotalPrompts) : [];
   });
+  // Update total prompts (to include paths)
+  const updateTotalPrompts = useCallback(() => {
+    // Only include root-level prompts and folder prompts, without duplicating them
+    const folderPrompts = folders.flatMap((folder) =>
+      folder.prompts.map((prompt) => ({
+        ...prompt,
+        path: `${folder.name}/${prompt.name}`, // Store folder path
+      }))
+    );
+
+    const updatedTotalPrompts = [
+      ...prompts.map((prompt) => ({
+        ...prompt,
+        path: prompt.name, // Root prompts have no folder
+      })),
+      ...folderPrompts,
+    ];
+
+    setTotalPrompts(updatedTotalPrompts);
+  }, [folders, prompts]);
 
   useEffect(() => {
     updateTotalPrompts();
-  }, [folders, prompts]);
+  }, [updateTotalPrompts]);
 
   // Persist folders, prompts, and totalPrompts to localStorage
   useEffect(() => {
@@ -282,27 +252,6 @@ const Chat: React.FC = () => {
     setFolders(folders.filter((folder) => folder.id !== folderId));
   };
 
-  // Update total prompts (to include paths)
-  const updateTotalPrompts = () => {
-    // Only include root-level prompts and folder prompts, without duplicating them
-    const folderPrompts = folders.flatMap((folder) =>
-      folder.prompts.map((prompt) => ({
-        ...prompt,
-        path: `${folder.name}/${prompt.name}`, // Store folder path
-      }))
-    );
-
-    const updatedTotalPrompts = [
-      ...prompts.map((prompt) => ({
-        ...prompt,
-        path: prompt.name, // Root prompts have no folder
-      })),
-      ...folderPrompts,
-    ];
-
-    setTotalPrompts(updatedTotalPrompts);
-  };
-
   const handleCopy = async (msgIdx: number, msgContent: string) => {
     const parser = new DOMParser();
     const doc = parser.parseFromString(msgContent, "text/html");
@@ -318,6 +267,20 @@ const Chat: React.FC = () => {
       console.error("Copy failed: ", err);
       alert("Failed to copy text.");
     }
+  };
+
+  const [copiedMessageId, setCopiedMessageId] = useState<number | null>(null);
+  const [showSettings, setShowSettings] = useState(false);
+  const [qgptSettings, setQGPTSettings] = useState({
+    llmModel: "gpt-4",
+    embeddingModel: "text-embedding-ada-002",
+    temperature: 0.7,
+    size: "2048", // Fix QGPTSettings type: ensure qgptSettings.size is a string, not a number
+  });
+  // Handler for saving settings
+  const updateConfig = (settings: typeof qgptSettings) => {
+    setQGPTSettings(settings);
+    setShowSettings(false);
   };
 
   useEffect(() => {
@@ -346,7 +309,7 @@ const Chat: React.FC = () => {
 
   useEffect(() => {
     setCurrentChatId(null);
-  }, [mode]);
+  }, [mode, setCurrentChatId]);
 
   useEffect(() => {
     if (currentChatId !== null) {
@@ -441,201 +404,73 @@ const Chat: React.FC = () => {
     navigate("/");
   };
 
+  // Add handleSelectChat to set currentChatId
+  const handleSelectChat = (chat: any) => {
+    setCurrentChatId(chat ? chat.id : null);
+  };
+
   // Mic implementation function i.e speech to text
 
-  const [isListening, setIsListening] = useState<boolean>(false);
+  // Speech-to-text state and functionality
+  const [isListening, setIsListening] = useState(false);
   const [recognition, setRecognition] = useState<SpeechRecognition | null>(
     null
   );
 
+  // Initialize speech recognition
   useEffect(() => {
-    // Check for speech recognition support
-    if (
-      !("webkitSpeechRecognition" in window || "SpeechRecognition" in window)
-    ) {
-      console.error("Speech recognition not supported in this browser");
+    if ("webkitSpeechRecognition" in window || "SpeechRecognition" in window) {
+      const SpeechRecognition =
+        (window as any).SpeechRecognition ||
+        (window as any).webkitSpeechRecognition;
+      const recognitionInstance = new SpeechRecognition();
+
+      recognitionInstance.continuous = true;
+      recognitionInstance.interimResults = true;
+      recognitionInstance.lang = "en-US";
+
+      recognitionInstance.onresult = (event: any) => {
+        let finalTranscript = "";
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          if (event.results[i].isFinal) {
+            finalTranscript += event.results[i][0].transcript;
+          }
+        }
+        if (finalTranscript) {
+          setInput((prev) => prev + finalTranscript);
+        }
+      };
+
+      recognitionInstance.onerror = (event: any) => {
+        console.error("Speech recognition error:", event.error);
+        setIsListening(false);
+      };
+
+      recognitionInstance.onend = () => {
+        setIsListening(false);
+      };
+
+      setRecognition(recognitionInstance);
+    }
+  }, [setInput]);
+
+  const toggleListening = () => {
+    if (!recognition) {
+      alert("Speech recognition is not supported in this browser.");
       return;
     }
 
-    // Define the SpeechRecognition type
-    const SpeechRecognition =
-      (window as any).SpeechRecognition ||
-      (window as any).webkitSpeechRecognition;
-    const recognitionInstance = new SpeechRecognition();
-
-    recognitionInstance.continuous = false; // Stop when user stops speaking
-    recognitionInstance.interimResults = true; // Show real-time transcription
-    recognitionInstance.lang = "en-US"; // Set language
-
-    recognitionInstance.onresult = (event: SpeechRecognitionEvent) => {
-      const transcript = Array.from(event.results)
-        .map((result) => result[0].transcript)
-        .join("");
-
-      setInput(transcript); // Update input without causing a loop
-    };
-
-    recognitionInstance.onend = () => {
-      setIsListening(false);
-      if (input.trim()) {
-        handleSendMessage(input);
-        setInput(""); // Clear input after sending
-      }
-    };
-
-    recognitionInstance.onerror = (event: SpeechRecognitionErrorEvent) => {
-      console.error("Speech recognition error:", event.error);
-      setIsListening(false);
-    };
-
-    setRecognition(recognitionInstance);
-
-    // Clean up the recognition instance on unmount
-    return () => {
-      recognitionInstance.abort();
-    };
-  }, []); // Run only once on mount
-
-  const toggleListening = () => {
-    if (!recognition) return;
     if (isListening) {
       recognition.stop();
       setIsListening(false);
     } else {
-      setInput(""); // Clear input before new speech
       recognition.start();
       setIsListening(true);
     }
   };
 
-  const checkGDriveCredentials = async (): Promise<boolean> => {
-    try {
-      // const response = await fetch(`${API_URL}/v1/drive/credentials`);
-      // if (!response.ok) throw new Error("Failed to check credentials");
-      // const data = await response.json();
-      // return data.hasCredentials;
-      return true;
-    } catch (error) {
-      console.error("Error checking GDrive credentials:", error);
-      return false;
-    }
-  };
-
-  const checkOneDriveCredentials = async (): Promise<boolean> => {
-    try {
-      // const response = await fetch(`${API_URL}/v1/drive/credentials`);
-      // if (!response.ok) throw new Error("Failed to check credentials");
-      // const data = await response.json();
-      // return data.hasCredentials;
-      return true;
-    } catch (error) {
-      console.error("Error checking GDrive credentials:", error);
-      return false;
-    }
-  };
-
-  const handleGDriveClick = async (): Promise<void> => {
-    try {
-      const hasCredentials = await checkGDriveCredentials();
-      if (!hasCredentials) {
-        // Show modal if credentials are missing
-        setIsGDriveModalOpen(true);
-        return;
-      }
-      const response = await fetch(`${API_URL}/v1/drive/injestfiles`);
-      if (!response.ok) throw new Error("GDrive request failed");
-      refreshFiles(); // Refresh files after successful request
-    } catch (error) {
-      console.error("Error triggering GDrive:", error);
-    }
-  };
-
-  const handleGDriveModalSubmit = async (): Promise<void> => {
-    if (!gDriveApiKey || !gDriveClientId) {
-      setCredentialError("Please enter both API Key and Client ID.");
-      return;
-    }
-
-    const success = await saveGDriveCredentials();
-    if (success) {
-      // Close modal, clear inputs, and proceed with ingestion
-      setIsGDriveModalOpen(false);
-      setGDriveApiKey("");
-      setGDriveClientId("");
-      setCredentialError(null);
-      // Trigger file ingestion
-      const response = await fetch(`${API_URL}/v1/drive/injestfiles`);
-      if (!response.ok) throw new Error("GDrive request failed");
-      await refreshFiles();
-    }
-  };
-
-  const handleOneDriveClick = async (): Promise<void> => {
-    try {
-      const hasCredentials = await checkOneDriveCredentials();
-      if (!hasCredentials) {
-        // Show modal if credentials are missing
-        setIsGDriveModalOpen(true);
-        return;
-      }
-      const response = await fetch(`${API_URL}/v1/onedrive/injestfiles`);
-      if (!response.ok) throw new Error("OneDrive request failed");
-      refreshFiles();
-    } catch (error) {
-      console.error("Error triggering OneDrive:", error);
-    }
-  };
-
   return (
     <div className="chat-container">
-      <Modal
-        title="Enter Drive Credentials"
-        open={isGDriveModalOpen}
-        onCancel={() => {
-          setIsGDriveModalOpen(false);
-          setGDriveApiKey("");
-          setGDriveClientId("");
-          setCredentialError(null);
-        }}
-        footer={[
-          <Button
-            key="cancel"
-            onClick={() => {
-              setIsGDriveModalOpen(false);
-              setGDriveApiKey("");
-              setGDriveClientId("");
-              setCredentialError(null);
-            }}
-          >
-            Cancel
-          </Button>,
-          <Button key="submit" type="primary" onClick={handleGDriveModalSubmit}>
-            Save and Ingest
-          </Button>,
-        ]}
-      >
-        <div style={{ marginBottom: "16px" }}>
-          <label htmlFor="gDriveApiKey">API Key</label>
-          <Input
-            id="gDriveApiKey"
-            value={gDriveApiKey}
-            onChange={(e) => setGDriveApiKey(e.target.value)}
-            placeholder="Enter  Drive API Key"
-          />
-        </div>
-        <div style={{ marginBottom: "16px" }}>
-          <label htmlFor="gDriveClientId">Client ID</label>
-          <Input
-            id="gDriveClientId"
-            value={gDriveClientId}
-            onChange={(e) => setGDriveClientId(e.target.value)}
-            placeholder="Enter  Drive Client ID"
-          />
-        </div>
-        {credentialError && (
-          <Alert message={credentialError} type="error" showIcon />
-        )}
-      </Modal>
       <Navbar
         bg="white"
         variant="light"
@@ -644,7 +479,7 @@ const Chat: React.FC = () => {
       >
         <Container fluid>
           <Navbar.Brand href="#home" className="mr-auto">
-            <img src={Picture1} alt="PrivateGPT" style={{ height: "70px" }} />
+            {/* <img src={Picture1} alt="PrivateGPT" style={{ height: "70px" }} /> */}
           </Navbar.Brand>
           <Nav className="ml-auto">
             <Nav.Link href="#" className="text-dark" onClick={handleEmailClick}>
@@ -690,8 +525,7 @@ const Chat: React.FC = () => {
               <option value="AgenticBot">Agentic Bot</option>
               <option value="ToolCalling">Tool Calling</option>
             </select>
-          </div>
-
+          </div>{" "}
           <div className="file-upload">
             <div className="mode-description">
               {mode === "RAG" &&
@@ -714,62 +548,50 @@ const Chat: React.FC = () => {
               style={{ display: "none" }}
               onChange={onFileChange}
             />
-            <button
-              className="btn secondary upload-files"
-              onClick={() => fileInputRef.current?.click()}
-            >
-              Upload
-            </button>
-          </div>
-          <div style={{ display: "flex", gap: "20px", alignItems: "center" }}>
-            <div
-              onClick={handleGDriveClick}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = "#f0f0f0";
-                e.currentTarget.style.borderRadius = "4px";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = "transparent";
-              }}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                cursor: "pointer",
-                padding: "5px",
-                transition: "background-color 0.2s ease",
-              }}
-            >
-              <img
-                src={GdriveImg}
-                alt="Google Drive"
-                style={{ height: "30px", marginRight: "5px" }}
-              />
-            </div>
-            <div
-              onClick={handleOneDriveClick}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = "#f0f0f0";
-                e.currentTarget.style.borderRadius = "4px";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = "transparent";
-              }}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                cursor: "pointer",
-                padding: "5px",
-                transition: "background-color 0.2s ease",
-              }}
-            >
-              <img
-                src={OneDriveImg}
-                alt="One Drive"
-                style={{ height: "30px", marginRight: "5px" }}
-              />
-            </div>
-          </div>
+            <div className="upload-section">
+              <button
+                className="btn secondary upload-files"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                Upload Files
+              </button>
 
+              {/* Cloud Storage Integration */}
+              <div className="cloud-storage-section">
+                <div className="cloud-storage-title">
+                  <strong>Cloud Storage</strong>
+                </div>
+                <div className="cloud-storage-buttons">
+                  <button
+                    className="btn cloud-btn gdrive-btn"
+                    onClick={handleConnectGoogleDrive}
+                    disabled={fileLoading}
+                    title="Import from Google Drive"
+                  >
+                    <img
+                      src={GdriveImg}
+                      alt="Google Drive"
+                      style={{ width: "20px", height: "20px" }}
+                    />
+                    Google Drive
+                  </button>
+                  <button
+                    className="btn cloud-btn onedrive-btn"
+                    onClick={handleConnectOneDrive}
+                    disabled={fileLoading}
+                    title="Import from OneDrive"
+                  >
+                    <img
+                      src={OneDriveImg}
+                      alt="OneDrive"
+                      style={{ width: "20px", height: "20px" }}
+                    />
+                    OneDrive
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
           <div className="ingested-files">
             <div className="d-flex justify-content-between align-items-center">
               <strong>Ingested Files</strong>
@@ -961,9 +783,7 @@ const Chat: React.FC = () => {
                       msg.role === "user" ? "user-message" : "bot-message"
                     }`}
                   >
-                    {msg.role !== "user" && (
-                      <img src={icon} alt="bot" className="bot-icon" />
-                    )}
+                    {msg.role !== "user" && <span className="bot-icon" />}
                     <div className="message-container">
                       <div className="message-content">
                         {msg.role === "user" ? (
@@ -1007,8 +827,23 @@ const Chat: React.FC = () => {
                 <FiArrowDownCircle size={16} />
               </button>
             )}
-            {/* Chat Input Section */}
+            {/* Chat Input Section */}{" "}
             <div className="chat-query-input">
+              {/* Hidden file input for regular file uploads */}
+              <input
+                type="file"
+                style={{ display: "none" }}
+                ref={fileInputRef}
+                onChange={onFileChange}
+              />
+              {/* Hidden file input for image uploads */}
+              <input
+                type="file"
+                accept="image/*"
+                style={{ display: "none" }}
+                ref={imageInputRef}
+                onChange={onFileChange}
+              />
               <div className="input-container">
                 <textarea
                   id="chatInput"
@@ -1028,7 +863,16 @@ const Chat: React.FC = () => {
                     height: "80px",
                     scrollbarWidth: "none",
                   }}
-                ></textarea>
+                ></textarea>{" "}
+                {/* Image Upload Button */}
+                <button
+                  className="image-upload-btn"
+                  title="Upload Image"
+                  onClick={() => imageInputRef.current?.click()}
+                  type="button"
+                >
+                  <FiImage size={18} />
+                </button>
                 {/* Mic Button for Speech-to-Text */}
                 <button
                   className="mic-btn"
@@ -1047,26 +891,27 @@ const Chat: React.FC = () => {
                 </button>
               </div>
               <div className="buttons primary">
+                {" "}
                 <button
                   className="btn primary retry"
                   onClick={handleRetry}
                   disabled={messageLoading}
                 >
-                  🔄 Retry
-                </button>
+                  Retry
+                </button>{" "}
                 <button
                   className="btn primary"
                   onClick={handleUndo}
                   disabled={messageLoading}
                 >
-                  ↩️ Undo
+                  Undo
                 </button>
                 <button
                   className="btn primary clear"
                   onClick={handleClearChat}
                   disabled={messageLoading}
                 >
-                  🗑️ Clear
+                  Clear
                 </button>
               </div>
               <div className="input-container">
@@ -1114,11 +959,11 @@ const Chat: React.FC = () => {
 
       <div className="footer">
         <div className="footer-everi-logo">
-          <img
+          {/* <img
             src={Picture1}
             alt="PrivateGPT"
             style={{ height: "70px", marginRight: "15px" }}
-          />
+          /> */}
           <p className="footer-logo-text">
             QDL <br />
             QDL Core Services
@@ -1127,7 +972,6 @@ const Chat: React.FC = () => {
         </div>
         <a className="footer-zylon-link" href="https://www.fisecglobal.net">
           Made at QuantumData Leap
-          <img className="footer-zylon-ico" src={icon} alt="Zylon" />
         </a>
       </div>
 

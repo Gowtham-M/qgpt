@@ -1,10 +1,17 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Modal, Button, Form } from "react-bootstrap";
-import { FiPlus, FiFolder, FiEdit, FiTrash, FiChevronDown, FiChevronRight } from "react-icons/fi";
+import {
+  FiPlus,
+  FiFolder,
+  FiEdit,
+  FiTrash,
+  FiChevronDown,
+  FiChevronRight,
+} from "react-icons/fi";
 import { DragDropContext, Droppable, Draggable } from "react-beautiful-dnd";
 import { Dispatch, SetStateAction } from "react";
-import imgMetaAgent from './assets/MetaAgent.jpg';
-import imgToolCalling from './assets/ToolCalling.jpg';
+import imgMetaAgent from "./assets/MetaAgent.jpg";
+import imgToolCalling from "./assets/ToolCalling.jpg";
 
 // Base Prompt interface (used in folders and root-level prompts)
 interface Prompt {
@@ -50,7 +57,7 @@ const PromptPanel: React.FC<PromptPanelProps> = ({
   updatePrompt,
   updateFolder,
   deletePrompt,
-  deleteFolder
+  deleteFolder,
 }) => {
   const [showModal, setShowModal] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -60,29 +67,31 @@ const PromptPanel: React.FC<PromptPanelProps> = ({
   const [selectedFolderId, setSelectedFolderId] = useState<number | null>(null);
   const [expandedFolders, setExpandedFolders] = useState<number[]>([]);
 
-  useEffect(() => {
-    updateTotalPrompts();
-  }, [prompts, folders]);
-
-  const updateTotalPrompts = () => {
+  const updateTotalPrompts = useCallback(() => {
     const folderPrompts = folders.flatMap((folder) =>
       folder.prompts.map((prompt) => ({
         ...prompt,
-        path: `${folder.name}/${prompt.name}`
+        path: `${folder.name}/${prompt.name}`,
       }))
     );
 
     const rootPrompts = prompts.map((prompt) => ({
       ...prompt,
-      path: prompt.name
+      path: prompt.name,
     }));
 
     setTotalPrompts([...rootPrompts, ...folderPrompts]);
-  };
+  }, [folders, prompts, setTotalPrompts]);
+
+  useEffect(() => {
+    updateTotalPrompts();
+  }, [updateTotalPrompts]);
 
   const toggleFolder = (folderId: number) => {
     setExpandedFolders((prev) =>
-      prev.includes(folderId) ? prev.filter((id) => id !== folderId) : [...prev, folderId]
+      prev.includes(folderId)
+        ? prev.filter((id) => id !== folderId)
+        : [...prev, folderId]
     );
   };
 
@@ -91,7 +100,12 @@ const PromptPanel: React.FC<PromptPanelProps> = ({
       setCurrentPrompt(prompt);
       setIsEditing(true);
     } else {
-      setCurrentPrompt({ id: Date.now(), name: "", content: "", description: "" });
+      setCurrentPrompt({
+        id: Date.now(),
+        name: "",
+        content: "",
+        description: "",
+      });
       setIsEditing(false);
       setSelectedFolderId(folderId ?? null);
     }
@@ -120,7 +134,6 @@ const PromptPanel: React.FC<PromptPanelProps> = ({
     setShowModal(false);
     setSelectedFolderId(null);
   };
-
 
   const handleDeletePrompt = (promptId: number) => {
     deletePrompt(promptId);
@@ -152,8 +165,12 @@ const PromptPanel: React.FC<PromptPanelProps> = ({
     const { source, destination } = result;
     if (!destination) return; // No destination, nothing to do
 
-    const sourceFolder = folders.find(f => f.id.toString() === source.droppableId);
-    const destFolder = folders.find(f => f.id.toString() === destination.droppableId);
+    const sourceFolder = folders.find(
+      (f) => f.id.toString() === source.droppableId
+    );
+    const destFolder = folders.find(
+      (f) => f.id.toString() === destination.droppableId
+    );
     const isSourceRoot = source.droppableId === "root";
     const isDestRoot = destination.droppableId === "root";
 
@@ -173,12 +190,12 @@ const PromptPanel: React.FC<PromptPanelProps> = ({
     // If moved to root
     if (isDestRoot) {
       // Ensure it's not a duplicate before adding to the root level
-      if (!prompts.some(p => p.id === movedPrompt.id)) {
+      if (!prompts.some((p) => p.id === movedPrompt.id)) {
         prompts.splice(destination.index, 0, movedPrompt); // Add to root
       }
     } else if (destFolder) {
       // Prevent duplication by checking if the prompt is already in the folder
-      if (!destFolder.prompts.some(p => p.id === movedPrompt.id)) {
+      if (!destFolder.prompts.some((p) => p.id === movedPrompt.id)) {
         destFolder.prompts.splice(destination.index, 0, movedPrompt); // Add to folder
       }
     }
@@ -195,12 +212,12 @@ const PromptPanel: React.FC<PromptPanelProps> = ({
 
     // Update the total prompts list
     const updatedTotalPrompts: TotalPrompt[] = [
-      ...prompts.map(prompt => ({
+      ...prompts.map((prompt) => ({
         ...prompt,
         path: prompt.name, // Root-level prompts have only the name as path
       })),
-      ...folders.flatMap(folder =>
-        folder.prompts.map(prompt => ({
+      ...folders.flatMap((folder) =>
+        folder.prompts.map((prompt) => ({
           ...prompt,
           path: `${folder.name}/${prompt.name}`, // Folder structure
         }))
@@ -212,32 +229,68 @@ const PromptPanel: React.FC<PromptPanelProps> = ({
 
   return (
     <DragDropContext onDragEnd={onDragEnd}>
-      <div className="section"><label><strong>Tone Analyzer</strong></label>
-        <div className="border-0 rounded" style={{ height: '320px', overflowY: 'auto', scrollbarWidth: 'thin' }}>
+      <div className="section">
+        <label>
+          <strong>Tone Analyzer</strong>
+        </label>
+        <div
+          className="border-0 rounded"
+          style={{ height: "320px", overflowY: "auto", scrollbarWidth: "thin" }}
+        >
           <div className="d-flex gap-2 mb-3">
-            <Button variant="secondary" style={{ fontSize: "13px", padding: "6px 6px" }} onClick={() => setShowFolderModal(true)}>
+            <Button
+              variant="secondary"
+              style={{ fontSize: "13px", padding: "6px 6px" }}
+              onClick={() => setShowFolderModal(true)}
+            >
               <FiFolder /> <FiPlus />
             </Button>
-            <Button variant="primary" style={{ fontSize: "13px", padding: "6px 6px" }} onClick={() => {
-              // Reset the current prompt before opening the modal
-              setCurrentPrompt(null);
-              setIsEditing(false);  // Ensure it's not in edit mode
-              setShowModal(true);  // Open the modal
-            }}
+            <Button
+              variant="primary"
+              style={{ fontSize: "13px", padding: "6px 6px" }}
+              onClick={() => {
+                // Reset the current prompt before opening the modal
+                setCurrentPrompt(null);
+                setIsEditing(false); // Ensure it's not in edit mode
+                setShowModal(true); // Open the modal
+              }}
             >
               New Tone <FiPlus />
             </Button>
-
           </div>
           <Droppable droppableId="root">
             {(provided) => (
-              <div {...provided.droppableProps} ref={provided.innerRef} className="mt-3 p-2 border rounded" style={{ marginBottom: "7px" }}>
+              <div
+                {...provided.droppableProps}
+                ref={provided.innerRef}
+                className="mt-3 p-2 border rounded"
+                style={{ marginBottom: "7px" }}
+              >
                 {prompts.map((prompt, index) => (
-                  <Draggable key={prompt.id} draggableId={prompt.id.toString()} index={index}>
+                  <Draggable
+                    key={prompt.id}
+                    draggableId={prompt.id.toString()}
+                    index={index}
+                  >
                     {(provided) => (
-                      <div ref={provided.innerRef} {...provided.draggableProps} {...provided.dragHandleProps} className="d-flex align-items-center mt-2">
-                        <span style={{ cursor: "pointer" }} onClick={() => openPromptModal(prompt)}>{prompt.name}</span>
-                        <Button variant="outline-danger" size="sm" className="ms-auto" onClick={() => handleDeletePrompt(prompt.id)}>
+                      <div
+                        ref={provided.innerRef}
+                        {...provided.draggableProps}
+                        {...provided.dragHandleProps}
+                        className="d-flex align-items-center mt-2"
+                      >
+                        <span
+                          style={{ cursor: "pointer" }}
+                          onClick={() => openPromptModal(prompt)}
+                        >
+                          {prompt.name}
+                        </span>
+                        <Button
+                          variant="outline-danger"
+                          size="sm"
+                          className="ms-auto"
+                          onClick={() => handleDeletePrompt(prompt.id)}
+                        >
                           <FiTrash />
                         </Button>
                       </div>
@@ -251,40 +304,80 @@ const PromptPanel: React.FC<PromptPanelProps> = ({
           {folders.map((folder) => (
             <div key={folder.id} className="mb-3 p-2 border rounded">
               <div className="d-flex align-items-center">
-                <span onClick={() => toggleFolder(folder.id)} style={{ cursor: "pointer" }}>
-                  {expandedFolders.includes(folder.id) ? <FiChevronDown /> : <FiChevronRight />}
+                <span
+                  onClick={() => toggleFolder(folder.id)}
+                  style={{ cursor: "pointer" }}
+                >
+                  {expandedFolders.includes(folder.id) ? (
+                    <FiChevronDown />
+                  ) : (
+                    <FiChevronRight />
+                  )}
                 </span>
                 <strong className="ms-2">{folder.name}</strong>
-                <Button variant="outline-secondary" size="sm" className="ms-auto" onClick={() => openFolderModal(folder.id)}>
+                <Button
+                  variant="outline-secondary"
+                  size="sm"
+                  className="ms-auto"
+                  onClick={() => openFolderModal(folder.id)}
+                >
                   <FiEdit />
                 </Button>
-                <Button variant="outline-danger" size="sm" className="ms-2" onClick={() => deleteFolder(folder.id)}>
+                <Button
+                  variant="outline-danger"
+                  size="sm"
+                  className="ms-2"
+                  onClick={() => deleteFolder(folder.id)}
+                >
                   <FiTrash />
                 </Button>
               </div>
               {expandedFolders.includes(folder.id) && (
                 <Droppable droppableId={folder.id.toString()}>
                   {(provided) => (
-                    <div {...provided.droppableProps} ref={provided.innerRef} className="ms-4 mt-2 border-start ps-2">
+                    <div
+                      {...provided.droppableProps}
+                      ref={provided.innerRef}
+                      className="ms-4 mt-2 border-start ps-2"
+                    >
                       <Button
                         size="sm"
                         variant="outline-primary"
                         onClick={() => {
                           // Reset the current prompt before opening the modal
                           setCurrentPrompt(null);
-                          setIsEditing(false);  // Ensure it's not in edit mode
-                          openPromptModal(undefined, folder.id);  // Open the modal for the new prompt in the folder
+                          setIsEditing(false); // Ensure it's not in edit mode
+                          openPromptModal(undefined, folder.id); // Open the modal for the new prompt in the folder
                         }}
                       >
                         <FiPlus /> New Tone
                       </Button>
 
                       {folder.prompts.map((prompt, index) => (
-                        <Draggable key={prompt.id} draggableId={prompt.id.toString()} index={index}>
+                        <Draggable
+                          key={prompt.id}
+                          draggableId={prompt.id.toString()}
+                          index={index}
+                        >
                           {(provided) => (
-                            <div ref={provided.innerRef} {...provided.draggableProps} {...provided.dragHandleProps} className="d-flex align-items-center mt-2">
-                              <span style={{ cursor: "pointer" }} onClick={() => openPromptModal(prompt)}>{prompt.name}</span>
-                              <Button variant="outline-danger" size="sm" className="ms-auto" onClick={() => deletePrompt(prompt.id)}>
+                            <div
+                              ref={provided.innerRef}
+                              {...provided.draggableProps}
+                              {...provided.dragHandleProps}
+                              className="d-flex align-items-center mt-2"
+                            >
+                              <span
+                                style={{ cursor: "pointer" }}
+                                onClick={() => openPromptModal(prompt)}
+                              >
+                                {prompt.name}
+                              </span>
+                              <Button
+                                variant="outline-danger"
+                                size="sm"
+                                className="ms-auto"
+                                onClick={() => deletePrompt(prompt.id)}
+                              >
                                 <FiTrash />
                               </Button>
                             </div>
@@ -348,16 +441,21 @@ const PromptPanel: React.FC<PromptPanelProps> = ({
           </Form.Group>
         </Modal.Body>
         <Modal.Footer>
-          <Button variant="secondary" onClick={() => setShowModal(false)}>Cancel</Button>
-          <Button variant="primary" onClick={handleSavePrompt}>Save</Button>
+          <Button variant="secondary" onClick={() => setShowModal(false)}>
+            Cancel
+          </Button>
+          <Button variant="primary" onClick={handleSavePrompt}>
+            Save
+          </Button>
         </Modal.Footer>
       </Modal>
-
 
       {/* Folder Name Modal */}
       <Modal show={showFolderModal} onHide={() => setShowFolderModal(false)}>
         <Modal.Header closeButton>
-          <Modal.Title>{selectedFolderId ? "Edit Folder" : "Add New Folder"}</Modal.Title>
+          <Modal.Title>
+            {selectedFolderId ? "Edit Folder" : "Add New Folder"}
+          </Modal.Title>
         </Modal.Header>
         <Modal.Body>
           <Form.Group>
@@ -370,8 +468,12 @@ const PromptPanel: React.FC<PromptPanelProps> = ({
           </Form.Group>
         </Modal.Body>
         <Modal.Footer>
-          <Button variant="secondary" onClick={() => setShowFolderModal(false)}>Cancel</Button>
-          <Button variant="primary" onClick={handleSaveFolder}>Save</Button>
+          <Button variant="secondary" onClick={() => setShowFolderModal(false)}>
+            Cancel
+          </Button>
+          <Button variant="primary" onClick={handleSaveFolder}>
+            Save
+          </Button>
         </Modal.Footer>
       </Modal>
       <div className="section">
@@ -379,21 +481,21 @@ const PromptPanel: React.FC<PromptPanelProps> = ({
           <strong>QGPT Agentic Bot</strong>
         </div>
         <div className="subSection">
-          <div className="try1" style={{ gap: '10px' }}>
+          <div className="try1" style={{ gap: "10px" }}>
             <img src={imgMetaAgent} alt="icon" width="20" height="20" />
             <strong>&nbsp;&nbsp;Meta Agent</strong>
             <span className="bottom-right-text">Coming soon...</span>
           </div>
         </div>
         <div className="subSection">
-          <div className="try1" style={{ gap: '10px' }}>
+          <div className="try1" style={{ gap: "10px" }}>
             <img src={imgToolCalling} alt="icon" width="20" height="20" />
             <strong>&nbsp;&nbsp;Tool Calling</strong>
             <span className="bottom-right-text">Coming soon...</span>
           </div>
         </div>
       </div>
-    </DragDropContext >
+    </DragDropContext>
   );
 };
 
