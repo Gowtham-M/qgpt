@@ -25,7 +25,9 @@ const QGPTSettingsModal: React.FC<QGPTSettingsModalProps> = ({
   const [llmModel, setLlmModel] = useState(initialSettings.llmModel);
   const [temperature, setTemperature] = useState(initialSettings.temperature);
   const [size, setSize] = useState(initialSettings.size);
-  const [embeddingModel, setEmbeddingModel] = useState(initialSettings.embeddingModel);
+  const [embeddingModel, setEmbeddingModel] = useState(
+    initialSettings.embeddingModel
+  );
 
   // New state for models fetched from the API
   const [llmModels, setLlmModels] = useState<string[]>([]);
@@ -48,7 +50,9 @@ const QGPTSettingsModal: React.FC<QGPTSettingsModalProps> = ({
     return 3; // default to "M"
   };
 
-  const [sizeValue, setSizeValue] = useState<number>(sizeToNumber(initialSettings.size));
+  const [sizeValue, setSizeValue] = useState<number>(
+    sizeToNumber(initialSettings.size)
+  );
 
   // When size slider changes, update the string value
   useEffect(() => {
@@ -71,11 +75,11 @@ const QGPTSettingsModal: React.FC<QGPTSettingsModalProps> = ({
     if (embeddingModels.length > 0 && !embeddingModel) {
       setEmbeddingModel(embeddingModels[0]);
     }
-  }, [llmModels, embeddingModels]);  // Runs when models update
-  
+  }, [llmModels, embeddingModels]); // Runs when models update
+
   // Fetch models once and split into LLM and embedding models
   useEffect(() => {
-    fetch("http://127.0.0.1:11434/api/tags")
+    fetch("http://52.9.216.105:11434/api/tags")
       .then((res) => res.json())
       .then((data) => {
         // Use data.models from the API response
@@ -86,14 +90,14 @@ const QGPTSettingsModal: React.FC<QGPTSettingsModalProps> = ({
         const embedModels = models
           .filter((model: any) => /embed/i.test(model.name))
           .map((model: any) => model.name);
-  
+
         console.log("Fetched Models:", models);
         console.log("Filtered LLM Models:", filteredLLMModels);
         console.log("Filtered Embedding Models:", embedModels);
-  
+
         setLlmModels(filteredLLMModels);
         setEmbeddingModels(embedModels);
-  
+
         if (!initialSettings.llmModel && filteredLLMModels.length > 0) {
           setLlmModel(filteredLLMModels[0]);
         }
@@ -105,8 +109,6 @@ const QGPTSettingsModal: React.FC<QGPTSettingsModalProps> = ({
         console.error("Failed to fetch models", err);
       });
   }, [initialSettings]);
-  
-
 
   const handleSave = () => {
     onSave({ llmModel, temperature, size, embeddingModel });
@@ -132,7 +134,10 @@ const QGPTSettingsModal: React.FC<QGPTSettingsModalProps> = ({
               <FiMonitor style={{ marginRight: "8px" }} />
               LLM Model
             </Form.Label>
-            <Form.Select value={llmModel} onChange={(e) => setLlmModel(e.target.value)}>
+            <Form.Select
+              value={llmModel}
+              onChange={(e) => setLlmModel(e.target.value)}
+            >
               {llmModels.map((model, index) => (
                 <option key={index} value={model}>
                   {model}
@@ -162,7 +167,8 @@ const QGPTSettingsModal: React.FC<QGPTSettingsModalProps> = ({
               <Col xs={12}>
                 <Form.Label className="fw-bold">
                   <FiThermometer style={{ marginRight: "8px" }} />
-                  Temperature: <span className="fw-normal">{temperature.toFixed(1)}</span>
+                  Temperature:{" "}
+                  <span className="fw-normal">{temperature.toFixed(1)}</span>
                 </Form.Label>
               </Col>
               <Col xs={12}>
@@ -174,8 +180,18 @@ const QGPTSettingsModal: React.FC<QGPTSettingsModalProps> = ({
                     value={temperature}
                     onChange={(e) => setTemperature(parseFloat(e.target.value))}
                   />
-                  <div style={{ position: "absolute", top: "22px", left: 0, width: "100%" }}>
-                    <div className="d-flex justify-content-between" style={{ fontSize: "0.75rem" }}>
+                  <div
+                    style={{
+                      position: "absolute",
+                      top: "22px",
+                      left: 0,
+                      width: "100%",
+                    }}
+                  >
+                    <div
+                      className="d-flex justify-content-between"
+                      style={{ fontSize: "0.75rem" }}
+                    >
                       {temperatureScale.map((val, index) => (
                         <span key={index}>{val}</span>
                       ))}
@@ -219,7 +235,13 @@ const QGPTSettingsModal: React.FC<QGPTSettingsModalProps> = ({
         <Button variant="secondary" onClick={onHide}>
           Cancel
         </Button>
-        <Button style={{ backgroundColor: "rgb(74, 81, 142)", borderColor: "rgb(64, 71, 126)" }} onClick={handleSave}>
+        <Button
+          style={{
+            backgroundColor: "rgb(74, 81, 142)",
+            borderColor: "rgb(64, 71, 126)",
+          }}
+          onClick={handleSave}
+        >
           Save Settings
         </Button>
       </Modal.Footer>
