@@ -480,7 +480,7 @@ const Chat: React.FC = () => {
       >
         <Container fluid>
           <Navbar.Brand href="#home" className="mr-auto">
-            {/* <img src={Picture1} alt="PrivateGPT" style={{ height: "70px" }} /> */}
+            <img src={Fiseclogo} alt="Fisec QGPT" style={{ height: "50px" }} />
           </Navbar.Brand>
           <Nav className="ml-auto">
             <Nav.Link href="#" className="text-dark" onClick={handleEmailClick}>
