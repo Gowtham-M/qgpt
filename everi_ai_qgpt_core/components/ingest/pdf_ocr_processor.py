@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 
 class PDFOCRProcessor:
     """Enhanced PDF processor that extracts text, images, and performs OCR."""    
-    def __init__(self, ollama_api_base: str = "http://localhost:11434", vision_model: str = "qwen2.5vl:3b"):
+    def __init__(self, ollama_api_base: str = "http://localhost:11434", vision_model: str = "qwen2.5vl:7b"):
         self.ollama_api_base = ollama_api_base
         self.vision_model = vision_model
           # Configure Tesseract path on Windows

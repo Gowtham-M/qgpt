@@ -11,8 +11,8 @@ logger = logging.getLogger(__name__)
 # In a production environment, these should be loaded from a configuration file or environment variables.
 OLLAMA_IMAGE_PROCESSING_ENABLED = True  # Master switch for this feature
 OLLAMA_API_URL = "http://localhost:11434/api/generate"  # Standard Ollama API endpoint for generate
-OLLAMA_MODEL_NAME = "qwen2.5vl:3b"  # Default multimodal model for image processing
-OLLAMA_IMAGE_PROMPT = "Describe this image in detail. What objects are present? What is happening?" # Prompt for Ollama
+OLLAMA_MODEL_NAME = "qwen2.5vl:7b"  # Default multimodal model for image processing
+OLLAMA_IMAGE_PROMPT = "Describe this image in detail. Extract numbers from the image? or try to analyse the size of the areas? Mostly the images you are given will be real estate site plots.."  # Prompt for Ollama
 OLLAMA_REQUEST_TIMEOUT = 60 # Seconds
 
 class OllamaImageProcessor:
