@@ -79,7 +79,7 @@ const QGPTSettingsModal: React.FC<QGPTSettingsModalProps> = ({
 
   // Fetch models once and split into LLM and embedding models
   useEffect(() => {
-    fetch("http://52.9.216.105:11434/api/tags")
+    fetch("http://localhost:11434/api/tags")
       .then((res) => res.json())
       .then((data) => {
         // Use data.models from the API response
