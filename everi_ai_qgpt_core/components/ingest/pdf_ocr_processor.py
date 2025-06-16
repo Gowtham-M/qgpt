@@ -161,7 +161,7 @@ class PDFOCRProcessor:
             if response.status_code == 200:
                 result = response.json()
                 vision_response = result.get('response', '').strip()
-                logger.response("image respone: %s", vision_response)
+                logger.info("image respone: %s", vision_response)
                 logger.info(f"Vision model response length: {len(vision_response)} characters")
                 return vision_response
             else:
