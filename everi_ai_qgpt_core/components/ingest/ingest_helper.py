@@ -13,17 +13,31 @@ logger = logging.getLogger(__name__)
 
 # Try to import EasyOCR processor
 try:
-    # EasyOcrProcessor is already imported, check if easyocr library itself is available
-    if EasyOcrProcessor(enabled=False).reader is not None or EasyOcrProcessor.EASY_OCR_ENABLED: # Check if easyocr was imported successfully by the processor
+    # Check if EasyOcrProcessor itself and its core easyocr lib are available
+    # Also check if pdf2image is available if PDF processing is a key feature for this helper
+    processor_instance_for_check = EasyOcrProcessor(enabled=False)
+    easyocr_lib_ok = processor_instance_for_check.reader is not None or EasyOcrProcessor.EASY_OCR_ENABLED
+    
+    # Assuming PDF processing is a primary use case for EasyOCR here
+    # If only image OCR is needed, this check for PDF2IMAGE_AVAILABLE can be optional
+    # from .easy_ocr_processor import PDF2IMAGE_AVAILABLE as EASY_OCR_PDF_CAPABLE
+    # For simplicity, let's assume if EasyOcrProcessor is used, PDF capability is desired.
+    # We need to import PDF2IMAGE_AVAILABLE from easy_ocr_processor or check it here.
+    # Let's re-import it for clarity or rely on EasyOcrProcessor to log if it's missing for PDFs.
+    from .easy_ocr_processor import PDF2IMAGE_AVAILABLE # Import for the check
+
+    if easyocr_lib_ok: # Basic EasyOCR is available
         EASY_OCR_PROCESSOR_AVAILABLE = True
         logger.info("EasyOCR Processor potentially available (library imported).")
+        if not PDF2IMAGE_AVAILABLE:
+            logger.warning("pdf2image library not found. PDF processing via EasyOCR will not be available.")
+        # If PDF2IMAGE_AVAILABLE is False, EasyOcrProcessor will handle PDFs by returning None or logging an error.
     else:
-        # This case might occur if easyocr itself failed to import within EasyOcrProcessor
         EASY_OCR_PROCESSOR_AVAILABLE = False
         logger.warning("EasyOCR library not found by EasyOcrProcessor, EasyOCR will not be used.")
-except ImportError: # Should be caught by EasyOcrProcessor's own try-except for easyocr
+except ImportError: 
     EASY_OCR_PROCESSOR_AVAILABLE = False
-    logger.warning("EasyOCR Processor not available (ImportError). EasyOCR will not be used.")
+    logger.warning("EasyOCR Processor or pdf2image not available (ImportError). EasyOCR features might be limited.")
 except Exception as e: # Catch other potential init errors
     EASY_OCR_PROCESSOR_AVAILABLE = False
     logger.warning(f"EasyOCR Processor not available due to an error: {e}. EasyOCR will not be used.")
@@ -115,52 +129,25 @@ class IngestionHelper:
         extension = Path(file_name).suffix.lower()
         
         # Supported image types for EasyOCR
-        easyocr_supported_image_extensions = {".jpg", ".jpeg", ".png"}
+        easyocr_supported_image_extensions = {".jpg", ".jpeg", ".png", ".bmp", ".tiff"} # Added more common types
 
         # Priority 1: PDF processing with EasyOCR
         if extension == ".pdf" and EASY_OCR_PROCESSOR_AVAILABLE:
             try:
                 logger.info(f"Attempting EasyOCR processing for PDF: {file_name}")
-                easy_ocr_processor = EasyOcrProcessor() # Uses default languages/GPU settings
+                easy_ocr_processor = EasyOcrProcessor() 
                 if easy_ocr_processor.enabled and easy_ocr_processor.reader:
-                    # EasyOcrProcessor expects an image path. For PDFs, we'd typically convert pages to images.
-                    # However, the current EasyOcrProcessor is designed for image files directly.
-                    # To use EasyOCR for PDFs, we would need a PDF-to-image conversion step first.
-                    # For now, we'll assume EasyOcrProcessor can handle PDF paths if it's adapted for it,
-                    # or this block will effectively be skipped if it only works for images.
-                    # A more robust solution would involve pdf2image library here.
-                    # Given the current EasyOcrProcessor, it's more likely to be used for images.
-                    # Let's assume for now the user wants to try it on PDFs directly if the library supports it,
-                    # or this is a placeholder for future PDF-to-image-then-OCR pipeline.
-                    # If EasyOcrProcessor's load_data is strictly for images, this will fail gracefully.
-                    
-                    # To make this work for PDFs with EasyOCR, we'd need to:
-                    # 1. Convert PDF pages to images (e.g., using pdf2image).
-                    # 2. Pass each image to EasyOcrProcessor.
-                    # 3. Combine the results.
-                    # This is a significant change. The request was to "replace EnhancedPDFReader".
-                    # EnhancedPDFReader itself might have done OCR. EasyOcrProcessor is image-based.
-                    # A direct replacement for PDF OCR implies EasyOcrProcessor would handle the PDF.
-                    # If EasyOCR cannot read PDF directly, this will fall through.
-                    # For simplicity, we'll call it and let it fail if it can't handle PDFs, then fall back.
-                    # A more correct implementation for PDF OCR using EasyOCR would be more involved.
-
-                    # Let's assume the user wants to try EasyOCR on the PDF path directly,
-                    # and if it's not designed for that, it will return None or raise an error,
-                    # leading to fallback.
-                    # This is a simplification based on the prompt.
-                    logger.warning("Using EasyOcrProcessor for PDF directly. This may not work if EasyOCR doesn't support PDF paths and requires pre-conversion of PDF pages to images.")
+                    # The EasyOcrProcessor.load_data now handles PDF to image conversion internally
                     documents = easy_ocr_processor.load_data(file_data, file_name)
                     if documents:
                         logger.info(f"Successfully processed PDF {file_name} with EasyOcrProcessor.")
-                        # NUL byte sanitization and metadata is handled by EasyOcrProcessor
                         return documents
                     else:
-                        logger.warning(f"EasyOcrProcessor for PDF {file_name} returned no documents. Falling back.")
+                        logger.warning(f"EasyOcrProcessor for PDF {file_name} returned no documents. Falling back to default PDFReader.")
                 else:
-                    logger.info(f"EasyOcrProcessor is not enabled or reader not initialized for PDF {file_name}. Falling back.")
+                    logger.info(f"EasyOcrProcessor is not enabled or reader not initialized for PDF {file_name}. Falling back to default PDFReader.")
             except Exception as e:
-                logger.error(f"Error using EasyOcrProcessor for PDF {file_name}: {e}. Falling back.")
+                logger.error(f"Error using EasyOcrProcessor for PDF {file_name}: {e}. Falling back to default PDFReader.")
             # Fall through to default PDF reader if EasyOCR fails or is not applicable
 
         # Priority 2: Image processing with EasyOCR
@@ -286,6 +273,19 @@ class IngestionHelper:
             if not easy_ocr_processor.enabled:
                 logger.info(f"EasyOCR processor is not enabled. Skipping OCR for {file_name}.")
                 return None
+                
+            documents = easy_ocr_processor.load_data(file_path, file_name)
+            
+            if documents:
+                logger.info(f"Successfully extracted text from {file_name} using EasyOCR.")
+                return documents
+            else:
+                logger.info(f"No text extracted or EasyOCR processing failed for {file_name}.")
+                return None
+                
+        except Exception as e:
+            logger.error(f"Error during EasyOCR processing for {file_name}: {e}", exc_info=True)
+            return None
                 
             documents = easy_ocr_processor.load_data(file_path, file_name)
             
