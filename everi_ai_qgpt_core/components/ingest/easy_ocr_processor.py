@@ -105,30 +105,34 @@ class EasyOcrProcessor:
             return None
 
         if not file_path.exists():
-            logger.error(f"File not found for EasyOCR processing: {file_path}")
+            logger.error(f"File not found for EasyOCR processing: {file_path} (original name: {file_name})")
             return None
         
         if not file_path.is_file():
-            logger.error(f"Path is not a file, skipping EasyOCR: {file_path}")
+            logger.error(f"Path is not a file, skipping EasyOCR: {file_path} (original name: {file_name})")
             return None
 
         extracted_text_parts = []
         
         try:
-            file_extension = file_path.suffix.lower()
+            # Determine file type based on file_name's extension, as file_path's extension might be misleading (e.g., temp file)
+            original_file_extension = Path(file_name).suffix.lower()
             
-            if file_extension == ".pdf":
+            logger.info(f"Processing file: {file_name} (path: {file_path}, detected original extension: {original_file_extension}) with EasyOCR.")
+
+            if original_file_extension == ".pdf":
                 if not PDF2IMAGE_AVAILABLE:
                     logger.error(
                         f"pdf2image library is not available, cannot process PDF: {file_name}. "
                         "Please install it (e.g., pip install pdf2image) and ensure Poppler is in PATH."
                     )
                     return None
-                logger.info(f"Processing PDF {file_name} with EasyOCR (via pdf2image conversion).")
+                logger.info(f"Processing PDF {file_name} as images with EasyOCR (via pdf2image conversion from path {file_path}).")
                 try:
+                    # convert_from_path will use the content of the file at file_path
                     images_from_path = convert_from_path(file_path)
                     if not images_from_path:
-                        logger.warning(f"pdf2image converted {file_name} into zero images.")
+                        logger.warning(f"pdf2image converted {file_name} (from {file_path}) into zero images.")
                         return None
                         
                     for i, image_pil in enumerate(images_from_path):
@@ -143,14 +147,14 @@ class EasyOcrProcessor:
                     logger.error(f"Error converting PDF {file_name} to images or processing pages: {e}")
                     return None # Or handle partial extraction if desired
 
-            elif file_extension in {".jpg", ".jpeg", ".png", ".bmp", ".tiff"}: # Add other image types if needed
-                logger.info(f"Attempting to process image {file_name} with EasyOCR.")
+            elif original_file_extension in {".jpg", ".jpeg", ".png", ".bmp", ".tiff"}: # Add other image types if needed
+                logger.info(f"Attempting to process image {file_name} (from path {file_path}) with EasyOCR.")
                 image_bytes = file_path.read_bytes()
-                image_text = self._process_image_data(image_bytes, file_name)
+                image_text = self._process_image_data(image_bytes, f"{file_name} (from {file_path})")
                 if image_text:
                     extracted_text_parts.append(image_text)
             else:
-                logger.warning(f"Unsupported file type for EasyOcrProcessor: {file_extension} for file {file_name}. Skipping.")
+                logger.warning(f"Unsupported original file type for EasyOcrProcessor: {original_file_extension} for file {file_name} (path: {file_path}). Skipping.")
                 return None
 
             final_extracted_text = "\n\n".join(extracted_text_parts).strip() # Join pages/parts with double newline

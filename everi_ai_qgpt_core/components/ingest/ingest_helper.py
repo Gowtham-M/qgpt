@@ -8,37 +8,30 @@ from llama_index.core.readers.json import JSONReader
 from llama_index.core.schema import Document
 
 from .easy_ocr_processor import EasyOcrProcessor  # Existing import
+from .easy_ocr_processor import PDF2IMAGE_AVAILABLE as EASY_OCR_PDF_CAPABLE # Import for check
 
 logger = logging.getLogger(__name__)
 
 # Try to import EasyOCR processor
 try:
-    # Check if EasyOcrProcessor itself and its core easyocr lib are available
-    # Also check if pdf2image is available if PDF processing is a key feature for this helper
     processor_instance_for_check = EasyOcrProcessor(enabled=False)
     easyocr_lib_ok = processor_instance_for_check.reader is not None or EasyOcrProcessor.EASY_OCR_ENABLED
     
-    # Assuming PDF processing is a primary use case for EasyOCR here
-    # If only image OCR is needed, this check for PDF2IMAGE_AVAILABLE can be optional
-    # from .easy_ocr_processor import PDF2IMAGE_AVAILABLE as EASY_OCR_PDF_CAPABLE
-    # For simplicity, let's assume if EasyOcrProcessor is used, PDF capability is desired.
-    # We need to import PDF2IMAGE_AVAILABLE from easy_ocr_processor or check it here.
-    # Let's re-import it for clarity or rely on EasyOcrProcessor to log if it's missing for PDFs.
-    from .easy_ocr_processor import PDF2IMAGE_AVAILABLE # Import for the check
-
-    if easyocr_lib_ok: # Basic EasyOCR is available
+    if easyocr_lib_ok:
         EASY_OCR_PROCESSOR_AVAILABLE = True
-        logger.info("EasyOCR Processor potentially available (library imported).")
-        if not PDF2IMAGE_AVAILABLE:
-            logger.warning("pdf2image library not found. PDF processing via EasyOCR will not be available.")
-        # If PDF2IMAGE_AVAILABLE is False, EasyOcrProcessor will handle PDFs by returning None or logging an error.
+        logger.info("EasyOCR Processor potentially available (EasyOCR library imported).")
+        if not EASY_OCR_PDF_CAPABLE:
+            logger.warning(
+                "pdf2image library not found or Poppler not configured. "
+                "PDF processing via EasyOCR will not be available."
+            )
     else:
         EASY_OCR_PROCESSOR_AVAILABLE = False
         logger.warning("EasyOCR library not found by EasyOcrProcessor, EasyOCR will not be used.")
 except ImportError: 
     EASY_OCR_PROCESSOR_AVAILABLE = False
-    logger.warning("EasyOCR Processor or pdf2image not available (ImportError). EasyOCR features might be limited.")
-except Exception as e: # Catch other potential init errors
+    logger.warning("EasyOCR Processor or its dependency (e.g. pdf2image) not available (ImportError). EasyOCR features might be limited.")
+except Exception as e: 
     EASY_OCR_PROCESSOR_AVAILABLE = False
     logger.warning(f"EasyOCR Processor not available due to an error: {e}. EasyOCR will not be used.")
 
@@ -128,33 +121,31 @@ class IngestionHelper:
         logger.debug("Transforming file_name=%s into documents", file_name)
         extension = Path(file_name).suffix.lower()
         
-        # Supported image types for EasyOCR
-        easyocr_supported_image_extensions = {".jpg", ".jpeg", ".png", ".bmp", ".tiff"} # Added more common types
+        easyocr_supported_image_extensions = {".jpg", ".jpeg", ".png", ".bmp", ".tiff"}
 
-        # Priority 1: PDF processing with EasyOCR
         if extension == ".pdf" and EASY_OCR_PROCESSOR_AVAILABLE:
             try:
                 logger.info(f"Attempting EasyOCR processing for PDF: {file_name}")
                 easy_ocr_processor = EasyOcrProcessor() 
                 if easy_ocr_processor.enabled and easy_ocr_processor.reader:
-                    # The EasyOcrProcessor.load_data now handles PDF to image conversion internally
+                    # EasyOcrProcessor now handles PDF to image conversion internally
                     documents = easy_ocr_processor.load_data(file_data, file_name)
                     if documents:
                         logger.info(f"Successfully processed PDF {file_name} with EasyOcrProcessor.")
                         return documents
                     else:
-                        logger.warning(f"EasyOcrProcessor for PDF {file_name} returned no documents. Falling back to default PDFReader.")
+                        # Log already happens in EasyOcrProcessor if pdf2image is missing or conversion fails
+                        logger.warning(f"EasyOcrProcessor for PDF {file_name} returned no documents or encountered an issue. Falling back to default PDFReader.")
                 else:
                     logger.info(f"EasyOcrProcessor is not enabled or reader not initialized for PDF {file_name}. Falling back to default PDFReader.")
             except Exception as e:
                 logger.error(f"Error using EasyOcrProcessor for PDF {file_name}: {e}. Falling back to default PDFReader.")
-            # Fall through to default PDF reader if EasyOCR fails or is not applicable
+            # Fall through to default PDF reader
 
-        # Priority 2: Image processing with EasyOCR
         if extension in easyocr_supported_image_extensions and EASY_OCR_PROCESSOR_AVAILABLE:
             try:
                 logger.info(f"Attempting EasyOCR processing for image: {file_name}")
-                easy_ocr_processor = EasyOcrProcessor() # Uses default languages/GPU
+                easy_ocr_processor = EasyOcrProcessor() 
                 if easy_ocr_processor.enabled and easy_ocr_processor.reader:
                     documents = easy_ocr_processor.load_data(file_data, file_name)
                     if documents:
@@ -290,6 +281,15 @@ class IngestionHelper:
             documents = easy_ocr_processor.load_data(file_path, file_name)
             
             if documents:
+                logger.info(f"Successfully extracted text from {file_name} using EasyOCR.")
+                return documents
+            else:
+                logger.info(f"No text extracted or EasyOCR processing failed for {file_name}.")
+                return None
+                
+        except Exception as e:
+            logger.error(f"Error during EasyOCR processing for {file_name}: {e}", exc_info=True)
+            return None
                 logger.info(f"Successfully extracted text from {file_name} using EasyOCR.")
                 return documents
             else:
