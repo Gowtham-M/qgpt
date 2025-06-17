@@ -278,24 +278,4 @@ class IngestionHelper:
             logger.error(f"Error during EasyOCR processing for {file_name}: {e}", exc_info=True)
             return None
                 
-            documents = easy_ocr_processor.load_data(file_path, file_name)
-            
-            if documents:
-                logger.info(f"Successfully extracted text from {file_name} using EasyOCR.")
-                return documents
-            else:
-                logger.info(f"No text extracted or EasyOCR processing failed for {file_name}.")
-                return None
-                
-        except Exception as e:
-            logger.error(f"Error during EasyOCR processing for {file_name}: {e}", exc_info=True)
-            return None
-                logger.info(f"Successfully extracted text from {file_name} using EasyOCR.")
-                return documents
-            else:
-                logger.info(f"No text extracted or EasyOCR processing failed for {file_name}.")
-                return None
-                
-        except Exception as e:
-            logger.error(f"Error during EasyOCR processing for {file_name}: {e}", exc_info=True)
-            return None
+          
