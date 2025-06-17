@@ -27,6 +27,8 @@ class EasyOcrProcessor:
     Processes images using EasyOCR to extract text.
     """
 
+    EASY_OCR_ENABLED = EASY_OCR_ENABLED  # <-- Add this line
+
     def __init__(
         self,
         languages: list[str] | None = None,
