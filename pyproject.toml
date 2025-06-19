@@ -1,7 +1,7 @@
 [tool.poetry]
-name = "everi_ai_qgpt_core"
+name = "qgpt_core"
 version = "0.6.2"
-description = "Everi QGPT"
+description = "QGPT"
 authors = ["Everi <kali.dutt@everi.com>"]
 
 [tool.poetry.dependencies]

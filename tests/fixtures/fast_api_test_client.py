@@ -1,7 +1,7 @@
 import pytest
 from fastapi.testclient import TestClient
 
-from everi_ai_qgpt_core.launcher import create_app
+from qgpt_core.launcher import create_app
 from tests.fixtures.mock_injector import MockInjector
 
 

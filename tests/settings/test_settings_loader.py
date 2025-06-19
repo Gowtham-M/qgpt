@@ -3,7 +3,7 @@ import os
 
 import pytest
 
-from everi_ai_qgpt_core.settings.yaml import load_yaml_with_envvars
+from qgpt_core.settings.yaml import load_yaml_with_envvars
 
 
 def test_environment_variables_are_loaded() -> None:

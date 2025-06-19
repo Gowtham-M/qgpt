@@ -5,10 +5,10 @@ from unittest.mock import MagicMock
 import pytest
 from injector import Provider, ScopeDecorator, singleton
 
-from everi_ai_qgpt_core.di import create_application_injector
-from everi_ai_qgpt_core.settings.settings import Settings, unsafe_settings
-from everi_ai_qgpt_core.settings.settings_loader import merge_settings
-from everi_ai_qgpt_core.utils.typing import T
+from qgpt_core.di import create_application_injector
+from qgpt_core.settings.settings import Settings, unsafe_settings
+from qgpt_core.settings.settings_loader import merge_settings
+from qgpt_core.utils.typing import T
 
 
 class MockInjector:

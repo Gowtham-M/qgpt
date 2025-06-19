@@ -1,7 +1,7 @@
 from fastapi.testclient import TestClient
 
-from everi_ai_qgpt_core.open_ai.openai_models import OpenAICompletion, OpenAIMessage
-from everi_ai_qgpt_core.server.chat.chat_router import ChatBody
+from qgpt_core.open_ai.openai_models import OpenAICompletion, OpenAIMessage
+from qgpt_core.server.chat.chat_router import ChatBody
 
 
 def test_chat_route_produces_a_stream(test_client: TestClient) -> None:

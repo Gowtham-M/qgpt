@@ -6,10 +6,10 @@ server:
     secret: "foo bar; dummy secret"
 
 data:
-  everi_ai_qgpt_vectordb_qdrant_folder: everi_ai_qgpt_vectordb_qdrant/tests
+  qgpt_vectordb_qdrant_folder: qgpt_vectordb_qdrant/tests
 
 qdrant:
-  path: everi_ai_qgpt_vectordb_qdrant/tests
+  path: qgpt_vectordb_qdrant/tests
 
 llm:
   mode: mock

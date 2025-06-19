@@ -2,7 +2,7 @@ from pathlib import Path
 
 from fastapi.testclient import TestClient
 
-from everi_ai_qgpt_core.server.chunks.chunks_router import ChunksBody, ChunksResponse
+from qgpt_core.server.chunks.chunks_router import ChunksBody, ChunksResponse
 from tests.fixtures.ingest_helper import IngestHelper
 
 

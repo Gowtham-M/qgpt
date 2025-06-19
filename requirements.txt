@@ -38,7 +38,7 @@ dulwich==0.22.7
 email_validator==2.2.0
 et_xmlfile==2.0.0
 etelemetry==0.3.1
--e git+https://github.com/srimukhpa/QGPT.git@3115307609218daebc8c954a0a4a0c32980e27f0#egg=everi_ai_qgpt_core
+-e git+https://github.com/srimukhpa/QGPT.git@3115307609218daebc8c954a0a4a0c32980e27f0#egg=qgpt_core
 fastapi==0.115.6
 fastapi-cli==0.0.7
 fastjsonschema==2.21.1

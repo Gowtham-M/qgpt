@@ -12,12 +12,12 @@ import pytest
 from fastapi import Depends
 from fastapi.testclient import TestClient
 
-from everi_ai_qgpt_core.server.utils.auth import (
+from qgpt_core.server.utils.auth import (
     NOT_AUTHENTICATED,
     _simple_authentication,
     authenticated,
 )
-from everi_ai_qgpt_core.settings.settings import settings
+from qgpt_core.settings.settings import settings
 
 
 def _copy_simple_authenticated(

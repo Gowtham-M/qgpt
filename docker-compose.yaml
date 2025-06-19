@@ -13,7 +13,7 @@ services:
       context: .
       dockerfile: Dockerfile.ollama
     volumes:
-      - ./everi_ai_qgpt_vectordb_qdrant:/home/worker/app/everi_ai_qgpt_vectordb_qdrant
+      - ./qgpt_vectordb_qdrant:/home/worker/app/qgpt_vectordb_qdrant
     ports:
       - "8001:8001"
     environment:
@@ -41,7 +41,7 @@ services:
       context: .
       dockerfile: Dockerfile.llamacpp-cpu
     volumes:
-      - ./everi_ai_qgpt_vectordb_qdrant/:/home/worker/app/everi_ai_qgpt_vectordb_qdrant
+      - ./qgpt_vectordb_qdrant/:/home/worker/app/qgpt_vectordb_qdrant
       - ./models/:/home/worker/app/models
     entrypoint: sh -c ".venv/bin/python scripts/setup && .venv/bin/python -m private_gpt"
     ports:
