@@ -35,6 +35,13 @@ except Exception as e:
     EASY_OCR_PROCESSOR_AVAILABLE = False
     logger.warning(f"EasyOCR Processor not available due to an error: {e}. EasyOCR will not be used.")
 
+try:
+    from everi_ai_qgpt_core.components.ingest.ollama_image_processor import OllamaImageProcessor
+    OLLAMA_IMAGE_PROCESSOR_AVAILABLE = True
+    logger.info("Ollama Image Processor available")
+except ImportError as e:
+    logger.warning(f"Ollama Image Processor not available: {e}")
+    OLLAMA_IMAGE_PROCESSOR_AVAILABLE = False
 
 def _try_loading_included_file_formats() -> dict[str, type[BaseReader]]:
     try:
@@ -158,9 +165,28 @@ class IngestionHelper:
                     logger.info(f"EasyOcrProcessor is not enabled or reader not initialized for image {file_name}. Falling back to default ImageReader.")
             except Exception as e:
                 logger.error(f"An unexpected error occurred using EasyOcrProcessor for image {file_name}: {e}. Falling back to default ImageReader.")
-            # Fall through to default ImageReader if EasyOCR fails or is not applicable
 
-        # Regular file processing (including fallbacks for PDF/Images)
+        # Fall through to default ImageReader if EasyOCR fails or is not applicable
+        image_extensions = {".jpg", ".jpeg", ".png"}
+        if extension in image_extensions and OLLAMA_IMAGE_PROCESSOR_AVAILABLE:
+            try:
+                # Initialize the processor (it will use its own default or environment-set configurations)
+                ollama_processor = OllamaImageProcessor()
+                if ollama_processor.enabled:
+                    documents = ollama_processor.load_data(file_data, file_name)
+                    if documents:
+                        logger.info(f"Successfully processed image {file_name} with OllamaImageProcessor.")
+                        # NUL byte sanitization is handled within OllamaImageProcessor
+                        return documents
+                    else:
+                        logger.warning(f"OllamaImageProcessor for image {file_name} returned no documents. Falling back to default ImageReader.")
+                else:
+                    logger.info(f"OllamaImageProcessor is disabled. Falling back to default ImageReader for {file_name}.")
+            except Exception as e:
+                logger.error(f"An unexpected error occurred using OllamaImageProcessor for image {file_name}: {e}. Falling back to default ImageReader.")
+            # If any exception occurs, processor is disabled, or returns no documents, 
+            # code execution falls through to the default ImageReader logic below.
+            # Regular file processing (including fallbacks for PDF/Images)
         reader_cls = FILE_READER_CLS.get(extension)
         if reader_cls is None:
             # Only use string reader for known text file types
