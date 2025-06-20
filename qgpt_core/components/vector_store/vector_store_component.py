@@ -10,9 +10,9 @@ from llama_index.core.vector_stores.types import (
     MetadataFilters,
 )
 
-from everi_ai_qgpt_core.open_ai.extensions.context_filter import ContextFilter
-from everi_ai_qgpt_core.paths import everi_ai_qgpt_vectordb_qdrant_path
-from everi_ai_qgpt_core.settings.settings import Settings
+from qgpt_core.open_ai.extensions.context_filter import ContextFilter
+from qgpt_core.paths import qgpt_vectordb_qdrant_path
+from qgpt_core.settings.settings import Settings
 
 logger = logging.getLogger(__name__)
 
@@ -69,7 +69,7 @@ class VectorStoreComponent:
                         Settings as ChromaSettings,
                     )
 
-                    from everi_ai_qgpt_core.components.vector_store.batched_chroma import (
+                    from qgpt_core.components.vector_store.batched_chroma import (
                         BatchedChromaVectorStore,
                     )
                 except ImportError as e:
@@ -82,13 +82,13 @@ class VectorStoreComponent:
                     anonymized_telemetry=False,
                     allow_reset=True,
                     is_persistent=True,
-                    persist_directory=str((everi_ai_qgpt_vectordb_qdrant_path / "chroma_db").absolute()),
+                    persist_directory=str((qgpt_vectordb_qdrant_path / "chroma_db").absolute()),
                     chroma_db_impl="duckdb+parquet",
                     persist_batch_size=5000,  # Larger batch size for better disk write performance
                 )
                 
                 chroma_client = chromadb.PersistentClient(
-                    path=str((everi_ai_qgpt_vectordb_qdrant_path / "chroma_db").absolute()),
+                    path=str((qgpt_vectordb_qdrant_path / "chroma_db").absolute()),
                     settings=chroma_settings,
                 )
 
@@ -161,7 +161,7 @@ class VectorStoreComponent:
                 if settings.milvus is None:
                     logger.info(
                         "Milvus config not found. Using default settings.\n"
-                        "Trying to connect to Milvus at everi_ai_qgpt_vectordb_qdrant/local_vectordb/milvus/milvus_local.db "
+                        "Trying to connect to Milvus at qgpt_vectordb_qdrant/local_vectordb/milvus/milvus_local.db "
                         "with collection 'make_this_parameterizable_per_api_call'."
                     )
 

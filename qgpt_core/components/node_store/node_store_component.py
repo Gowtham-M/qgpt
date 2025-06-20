@@ -5,8 +5,8 @@ from llama_index.core.storage.docstore import BaseDocumentStore, SimpleDocumentS
 from llama_index.core.storage.index_store import SimpleIndexStore
 from llama_index.core.storage.index_store.types import BaseIndexStore
 
-from everi_ai_qgpt_core.paths import everi_ai_qgpt_vectordb_qdrant_path
-from everi_ai_qgpt_core.settings.settings import Settings
+from qgpt_core.paths import qgpt_vectordb_qdrant_path
+from qgpt_core.settings.settings import Settings
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +22,7 @@ class NodeStoreComponent:
             case "simple":
                 try:
                     self.index_store = SimpleIndexStore.from_persist_dir(
-                        persist_dir=str(everi_ai_qgpt_vectordb_qdrant_path)
+                        persist_dir=str(qgpt_vectordb_qdrant_path)
                     )
                 except FileNotFoundError:
                     logger.debug("Local index store not found, creating a new one")
@@ -30,7 +30,7 @@ class NodeStoreComponent:
 
                 try:
                     self.doc_store = SimpleDocumentStore.from_persist_dir(
-                        persist_dir=str(everi_ai_qgpt_vectordb_qdrant_path)
+                        persist_dir=str(qgpt_vectordb_qdrant_path)
                     )
                 except FileNotFoundError:
                     logger.debug("Local document store not found, creating a new one")

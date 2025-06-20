@@ -17,15 +17,15 @@ from llama_index.core.storage import StorageContext
 from llama_index.core.types import TokenGen
 from pydantic import BaseModel
 
-from everi_ai_qgpt_core.components.embedding.embedding_component import EmbeddingComponent
-from everi_ai_qgpt_core.components.llm.llm_component import LLMComponent
-from everi_ai_qgpt_core.components.node_store.node_store_component import NodeStoreComponent
-from everi_ai_qgpt_core.components.vector_store.vector_store_component import (
+from qgpt_core.components.embedding.embedding_component import EmbeddingComponent
+from qgpt_core.components.llm.llm_component import LLMComponent
+from qgpt_core.components.node_store.node_store_component import NodeStoreComponent
+from qgpt_core.components.vector_store.vector_store_component import (
     VectorStoreComponent,
 )
-from everi_ai_qgpt_core.open_ai.extensions.context_filter import ContextFilter
-from everi_ai_qgpt_core.server.chunks.chunks_service import Chunk
-from everi_ai_qgpt_core.settings.settings import Settings
+from qgpt_core.open_ai.extensions.context_filter import ContextFilter
+from qgpt_core.server.chunks.chunks_service import Chunk
+from qgpt_core.settings.settings import Settings
 
 if TYPE_CHECKING:
     from llama_index.core.postprocessor.types import BaseNodePostprocessor

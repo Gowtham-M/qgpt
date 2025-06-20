@@ -99,7 +99,7 @@ class DataSettings(BaseModel):
         description="Ingestion configuration",
         default_factory=lambda: IngestionSettings(allow_ingest_from=["*"]),
     )
-    everi_ai_qgpt_vectordb_qdrant_folder: str = Field(
+    qgpt_vectordb_qdrant_folder: str = Field(
         description="Path to local storage."
         "It will be treated as an absolute path if it starts with /"
     )
@@ -568,8 +568,8 @@ class QdrantSettings(BaseModel):
 
 class MilvusSettings(BaseModel):
     uri: str = Field(
-        "everi_ai_qgpt_vectordb_qdrant/private_gpt/milvus/milvus_local.db",
-        description="The URI of the Milvus instance. For example: 'everi_ai_qgpt_vectordb_qdrant/private_gpt/milvus/milvus_local.db' for Milvus Lite.",
+        "qgpt_vectordb_qdrant/private_gpt/milvus/milvus_local.db",
+        description="The URI of the Milvus instance. For example: 'qgpt_vectordb_qdrant/private_gpt/milvus/milvus_local.db' for Milvus Lite.",
     )
     token: str = Field(
         "",

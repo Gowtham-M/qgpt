@@ -17,10 +17,10 @@ from llama_index.core.ingestion import run_transformations
 from llama_index.core.schema import BaseNode, Document, TransformComponent
 from llama_index.core.storage import StorageContext
 
-from everi_ai_qgpt_core.components.ingest.ingest_helper import IngestionHelper
-from everi_ai_qgpt_core.paths import everi_ai_qgpt_vectordb_qdrant_path
-from everi_ai_qgpt_core.settings.settings import Settings
-from everi_ai_qgpt_core.utils.eta import eta
+from qgpt_core.components.ingest.ingest_helper import IngestionHelper
+from qgpt_core.paths import qgpt_vectordb_qdrant_path
+from qgpt_core.settings.settings import Settings
+from qgpt_core.utils.eta import eta
 
 logger = logging.getLogger(__name__)
 
@@ -91,11 +91,11 @@ class BaseIngestComponentWithIndex(BaseIngestComponent, abc.ABC):
                 embed_model=self.embed_model,
                 transformations=self.transformations,
             )
-            index.storage_context.persist(persist_dir=everi_ai_qgpt_vectordb_qdrant_path)
+            index.storage_context.persist(persist_dir=qgpt_vectordb_qdrant_path)
         return index
 
     def _save_index(self) -> None:
-        self._index.storage_context.persist(persist_dir=everi_ai_qgpt_vectordb_qdrant_path)
+        self._index.storage_context.persist(persist_dir=qgpt_vectordb_qdrant_path)
 
     def delete(self, doc_id: str) -> None:
         with self._index_thread_lock:

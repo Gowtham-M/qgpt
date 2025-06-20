@@ -8,9 +8,9 @@ from llama_index.core.settings import Settings as LlamaIndexSettings
 from llama_index.core.utils import set_global_tokenizer
 from transformers import AutoTokenizer  # type: ignore
 
-from everi_ai_qgpt_core.components.llm.prompt_helper import get_prompt_style
-from everi_ai_qgpt_core.paths import models_cache_path, models_path
-from everi_ai_qgpt_core.settings.settings import Settings
+from qgpt_core.components.llm.prompt_helper import get_prompt_style
+from qgpt_core.paths import models_cache_path, models_path
+from qgpt_core.settings.settings import Settings
 
 logger = logging.getLogger(__name__)
 
@@ -77,7 +77,7 @@ class LLMComponent:
 
             case "sagemaker":
                 try:
-                    from everi_ai_qgpt_core.components.llm.custom.sagemaker import SagemakerLLM
+                    from qgpt_core.components.llm.custom.sagemaker import SagemakerLLM
                 except ImportError as e:
                     raise ImportError(
                         "Sagemaker dependencies not found, install with `poetry install --extras llms-sagemaker`"
@@ -162,7 +162,7 @@ class LLMComponent:
                 )
 
                 if ollama_settings.autopull_models:
-                    from everi_ai_qgpt_core.utils.ollama import check_connection, pull_model
+                    from qgpt_core.utils.ollama import check_connection, pull_model
 
                     if not check_connection(llm.client):
                         raise ValueError(

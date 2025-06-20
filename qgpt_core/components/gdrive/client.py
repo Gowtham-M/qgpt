@@ -20,11 +20,11 @@ from typing import Literal
 # Configure logging
 from .config import GoogleDriveConfig
 from llama_index.core.schema import Document
-from everi_ai_qgpt_core.components.ingest.ingest_helper import IngestionHelper
-from everi_ai_qgpt_core.components.ingest.ingest_component  import SimpleIngestComponent
-from everi_ai_qgpt_core.server.ingest.ingest_service import IngestService
-from everi_ai_qgpt_core.server.ingest.model import IngestedDoc
-from everi_ai_qgpt_core.constants import PROJECT_ROOT_PATH
+from qgpt_core.components.ingest.ingest_helper import IngestionHelper
+from qgpt_core.components.ingest.ingest_component  import SimpleIngestComponent
+from qgpt_core.server.ingest.ingest_service import IngestService
+from qgpt_core.server.ingest.model import IngestedDoc
+from qgpt_core.constants import PROJECT_ROOT_PATH
 
 import logging
 
@@ -51,9 +51,9 @@ class IngestResponse(BaseModel):
 class GoogleDriveClient:    
     def __init__(self):
         # Load the client secret JSON file using project root path
-        # json_file_path = "/home/srikar/QGPT_BE/QGPT/everi_ai_qgpt_core/tokenFolder/client_secret_35945508936-uothe1o4slnugbc3ghcjj4drqcnelvjh.apps.googleusercontent.com.json"
-        # json_file_path = "/home/ubuntu/github/qgpt/everi_ai_qgpt_core/tokenFolder/client_secret_35945508936-uothe1o4slnugbc3ghcjj4drqcnelvjh.apps.googleusercontent.com.json"
-        json_file_path = PROJECT_ROOT_PATH / "everi_ai_qgpt_core" / "tokenFolder" / "client_secret_35945508936-uothe1o4slnugbc3ghcjj4drqcnelvjh.apps.googleusercontent.com.json"
+        # json_file_path = "/home/srikar/QGPT_BE/QGPT/qgpt_core/tokenFolder/client_secret_35945508936-uothe1o4slnugbc3ghcjj4drqcnelvjh.apps.googleusercontent.com.json"
+        # json_file_path = "/home/ubuntu/github/qgpt/qgpt_core/tokenFolder/client_secret_35945508936-uothe1o4slnugbc3ghcjj4drqcnelvjh.apps.googleusercontent.com.json"
+        json_file_path = PROJECT_ROOT_PATH / "qgpt_core" / "tokenFolder" / "client_secret_35945508936-uothe1o4slnugbc3ghcjj4drqcnelvjh.apps.googleusercontent.com.json"
         with open(json_file_path, 'r') as f:
             data = json.load(f)
         self.config = GoogleDriveConfig(**data)
@@ -65,9 +65,9 @@ class GoogleDriveClient:
     def _build_service(self):
         # Check if token.json exists (stores user credentials after first login)
         credentials = None
-        # token_path = "/home/srikar/QGPT_BE/QGPT/everi_ai_qgpt_core/tokenFolder/token.json"
-        # token_path = "/home/ubuntu/github/qgpt/everi_ai_qgpt_core/tokenFolder/token.json"
-        token_path = PROJECT_ROOT_PATH / "everi_ai_qgpt_core" / "tokenFolder" / "token.json"
+        # token_path = "/home/srikar/QGPT_BE/QGPT/qgpt_core/tokenFolder/token.json"
+        # token_path = "/home/ubuntu/github/qgpt/qgpt_core/tokenFolder/token.json"
+        token_path = PROJECT_ROOT_PATH / "qgpt_core" / "tokenFolder" / "token.json"
         if os.path.exists(token_path):
             credentials = Credentials.from_authorized_user_file(token_path, self.scopes)
 

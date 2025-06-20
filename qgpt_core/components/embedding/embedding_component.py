@@ -3,8 +3,8 @@ import logging
 from injector import inject, singleton
 from llama_index.core.embeddings import BaseEmbedding, MockEmbedding
 
-from everi_ai_qgpt_core.paths import models_cache_path
-from everi_ai_qgpt_core.settings.settings import Settings
+from qgpt_core.paths import models_cache_path
+from qgpt_core.settings.settings import Settings
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +35,7 @@ class EmbeddingComponent:
                 )
             case "sagemaker":
                 try:
-                    from everi_ai_qgpt_core.components.embedding.custom.sagemaker import (
+                    from qgpt_core.components.embedding.custom.sagemaker import (
                         SagemakerEmbedding,
                     )
                 except ImportError as e:
@@ -94,7 +94,7 @@ class EmbeddingComponent:
 
                 if ollama_settings.autopull_models:
                     if ollama_settings.autopull_models:
-                        from everi_ai_qgpt_core.utils.ollama import (
+                        from qgpt_core.utils.ollama import (
                             check_connection,
                             pull_model,
                         )
