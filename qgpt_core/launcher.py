@@ -13,18 +13,18 @@ from pathlib import Path  # Update by kali
 from fastapi.middleware.cors import CORSMiddleware
 
 # Import API routers
-from everi_ai_qgpt_core.server.chat.chat_router import chat_router
-from everi_ai_qgpt_core.server.chunks.chunks_router import chunks_router
-from everi_ai_qgpt_core.server.completions.completions_router import completions_router
-from everi_ai_qgpt_core.server.embeddings.embeddings_router import embeddings_router
-from everi_ai_qgpt_core.server.health.health_router import health_router
-from everi_ai_qgpt_core.server.ingest.ingest_router import ingest_router
-from everi_ai_qgpt_core.server.recipes.summarize.summarize_router import summarize_router
-from everi_ai_qgpt_core.server.config.config_router import config_router
-from everi_ai_qgpt_core.server.gdrive.gdrive_router import gdrive_router
-from everi_ai_qgpt_core.server.onedrive.onedrive_router import onedrive_router
-from everi_ai_qgpt_core.server.images.images_router import images_router
-from everi_ai_qgpt_core.settings.settings import Settings
+from qgpt_core.server.chat.chat_router import chat_router
+from qgpt_core.server.chunks.chunks_router import chunks_router
+from qgpt_core.server.completions.completions_router import completions_router
+from qgpt_core.server.embeddings.embeddings_router import embeddings_router
+from qgpt_core.server.health.health_router import health_router
+from qgpt_core.server.ingest.ingest_router import ingest_router
+from qgpt_core.server.recipes.summarize.summarize_router import summarize_router
+from qgpt_core.server.config.config_router import config_router
+from qgpt_core.server.gdrive.gdrive_router import gdrive_router
+from qgpt_core.server.onedrive.onedrive_router import onedrive_router
+from qgpt_core.server.images.images_router import images_router
+from qgpt_core.settings.settings import Settings
 
 
 logger = logging.getLogger(__name__)
@@ -67,7 +67,7 @@ def create_app(root_injector: Injector) -> FastAPI:
 
     # Updated by kali
     BASE_DIR = Path(__file__).resolve().parent
-    FRONTEND_BUILD_PATH = (BASE_DIR / ".." / "everi_ai_qgpt_ui" / "build").resolve()
+    FRONTEND_BUILD_PATH = (BASE_DIR / ".." / "qgpt_ui" / "build").resolve()
 
     # Ensure the directory exists
     if not FRONTEND_BUILD_PATH.exists():
@@ -78,9 +78,9 @@ def create_app(root_injector: Injector) -> FastAPI:
 
     ######################
     # Mount React frontend
-    # app.mount("/", StaticFiles(directory="C:\\Everi\\Application\\EveriQGPT-React-new\\QGPT-React\\everi_ai_qgpt_ui\\build", html=True), name="react-app")
+    # app.mount("/", StaticFiles(directory="C:\\Everi\\Application\\EveriQGPT-React-new\\QGPT-React\\qgpt_ui\\build", html=True), name="react-app")
 
-    # app.mount("/", StaticFiles(directory="C:\\Users\\abdur.mohammed\\Downloads\\private-gpt-kali\\private-gpt\\everi_ai_qgpt_ui\\build", html=True), name="react-app")
+    # app.mount("/", StaticFiles(directory="C:\\Users\\abdur.mohammed\\Downloads\\private-gpt-kali\\private-gpt\\qgpt_ui\\build", html=True), name="react-app")
 
     # Update by abdur
     @app.get("/{full_path:path}")
