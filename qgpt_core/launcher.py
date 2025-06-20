@@ -23,6 +23,7 @@ from qgpt_core.server.recipes.summarize.summarize_router import summarize_router
 from qgpt_core.server.config.config_router import config_router
 from qgpt_core.server.gdrive.gdrive_router import gdrive_router
 from qgpt_core.server.onedrive.onedrive_router import onedrive_router
+from qgpt_core.server.images.images_router import images_router
 from qgpt_core.settings.settings import Settings
 
 
@@ -76,7 +77,7 @@ def create_app(root_injector: Injector) -> FastAPI:
 
     ######################
     # Mount React frontend
-    # app.mount("/", StaticFiles(directory="C:\\Everi\\Application\\QGPT-React-new\\QGPT-React\\qgpt_ui\\build", html=True), name="react-app")
+    # app.mount("/", StaticFiles(directory="C:\\Everi\\Application\\EveriQGPT-React-new\\QGPT-React\\qgpt_ui\\build", html=True), name="react-app")
 
     # app.mount("/", StaticFiles(directory="C:\\Users\\abdur.mohammed\\Downloads\\private-gpt-kali\\private-gpt\\qgpt_ui\\build", html=True), name="react-app")
 
