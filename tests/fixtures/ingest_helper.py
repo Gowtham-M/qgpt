@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from everi_ai_qgpt_core.server.ingest.ingest_router import IngestResponse
+from qgpt_core.server.ingest.ingest_router import IngestResponse
 
 
 class IngestHelper:

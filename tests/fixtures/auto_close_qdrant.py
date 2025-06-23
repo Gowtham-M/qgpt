@@ -1,6 +1,6 @@
 import pytest
 
-from everi_ai_qgpt_core.components.vector_store.vector_store_component import (
+from qgpt_core.components.vector_store.vector_store_component import (
     VectorStoreComponent,
 )
 from tests.fixtures.mock_injector import MockInjector

@@ -1,4 +1,4 @@
-# packages in environment at C:\Users\srimu\anaconda3\envs\everi_ai_qgpt_python:
+# packages in environment at C:\Users\srimu\anaconda3\envs\qgpt_python:
 #
 # Name                    Version                   Build  Channel
 aiofiles                  23.2.1                   pypi_0    pypi

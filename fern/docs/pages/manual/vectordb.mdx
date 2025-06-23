@@ -27,7 +27,7 @@ The available configuration options are:
 | prefix       | If set, add `prefix` to the REST URL path. Example: `service/v1` will result in `http://localhost:6333/service/v1/{qdrant-endpoint}` for REST API.|
 | timeout      | Timeout for REST and gRPC API requests. Default: 5.0 seconds for REST and unlimited for gRPC |
 | host         | Host name of Qdrant service. If url and host are not set, defaults to 'localhost'.|
-| path         | Persistence path for QdrantLocal. Eg. `everi_ai_qgpt_vectordb_qdrant/local_vectordb/qdrant`|
+| path         | Persistence path for QdrantLocal. Eg. `qgpt_vectordb_qdrant/local_vectordb/qdrant`|
 | force_disable_check_same_thread         | Force disable check_same_thread for QdrantLocal sqlite connection, defaults to True.|
 
 By default Qdrant tries to connect to an instance of Qdrant server at `http://localhost:3000`.
@@ -36,7 +36,7 @@ To obtain a local setup (disk-based database) without running a Qdrant server, c
 
 ```yaml
 qdrant:
-  path: everi_ai_qgpt_vectordb_qdrant/local_vectordb/qdrant
+  path: qgpt_vectordb_qdrant/local_vectordb/qdrant
 ```
 
 ### Milvus configuration
@@ -50,12 +50,12 @@ poetry install --extras vector-stores-milvus
 The available configuration options are:
 | Field        | Description |
 |--------------|-------------|
-| uri     | Default is set to "everi_ai_qgpt_vectordb_qdrant/local_vectordb/milvus/milvus_local.db" as a local file; you can also set up a more performant Milvus server on docker or k8s e.g.http://localhost:19530, as your uri; To use Zilliz Cloud, adjust the uri and token to Endpoint and Api key in Zilliz Cloud.|
+| uri     | Default is set to "qgpt_vectordb_qdrant/local_vectordb/milvus/milvus_local.db" as a local file; you can also set up a more performant Milvus server on docker or k8s e.g.http://localhost:19530, as your uri; To use Zilliz Cloud, adjust the uri and token to Endpoint and Api key in Zilliz Cloud.|
 | token          | Pair with Milvus server on docker or k8s or zilliz cloud api key.|
 | collection_name         | The name of the collection, set to default "milvus_db".|
 | overwrite    | Overwrite the data in collection if it existed, set to default as True. |
 
-To obtain a local setup (disk-based database) without running a Milvus server, configure the uri value in settings.yaml, to store in everi_ai_qgpt_vectordb_qdrant/local_vectordb/milvus/milvus_local.db.
+To obtain a local setup (disk-based database) without running a Milvus server, configure the uri value in settings.yaml, to store in qgpt_vectordb_qdrant/local_vectordb/milvus/milvus_local.db.
 
 ### Chroma configuration
 
@@ -65,7 +65,7 @@ To enable Chroma, set the `vectorstore.database` property in the `settings.yaml`
 poetry install --extras chroma
 ```
 
-By default `chroma` will use a disk-based database stored in everi_ai_qgpt_vectordb_qdrant_path / "chroma_db" (being everi_ai_qgpt_vectordb_qdrant_path defined in settings.yaml)
+By default `chroma` will use a disk-based database stored in qgpt_vectordb_qdrant_path / "chroma_db" (being qgpt_vectordb_qdrant_path defined in settings.yaml)
 
 ### PGVector
 To use the PGVector store a [postgreSQL](https://www.postgresql.org/) database with the PGVector extension must be used.

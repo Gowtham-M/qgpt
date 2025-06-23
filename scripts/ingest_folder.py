@@ -4,10 +4,10 @@ import argparse
 import logging
 from pathlib import Path
 
-from everi_ai_qgpt_core.di import global_injector
-from everi_ai_qgpt_core.server.ingest.ingest_service import IngestService
-from everi_ai_qgpt_core.server.ingest.ingest_watcher import IngestWatcher
-from everi_ai_qgpt_core.settings.settings import Settings
+from qgpt_core.di import global_injector
+from qgpt_core.server.ingest.ingest_service import IngestService
+from qgpt_core.server.ingest.ingest_watcher import IngestWatcher
+from qgpt_core.settings.settings import Settings
 
 logger = logging.getLogger(__name__)
 

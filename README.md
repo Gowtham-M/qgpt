@@ -3,7 +3,7 @@
 **Pre-requisite** 
 ******************************************************* 
 
-1. EveriQGPT code from - https://EnterpriseITTeam@dev.azure.com/EnterpriseITTeam/Enterprise%20IT-Initiatives/_git/everi_ai_qgpt_python
+1. QGPT code from - https://EnterpriseITTeam@dev.azure.com/EnterpriseITTeam/Enterprise%20IT-Initiatives/_git/qgpt_python
 2. Anaconda 
 3. Node (for windows) - for React UI
 4. Ollama with require LLM models 
@@ -12,15 +12,15 @@
 
 
 ******************************************************* 
-**Installation & Deployment/Setup Steps for Everi QGPT** 
+**Installation & Deployment/Setup Steps for  QGPT** 
 ******************************************************* 
 
-Step 1. Building EveriQGPT UI using React 
+Step 1. Building QGPT UI using React 
 --------------------------------------------
--> Download the source code from ADO: https://EnterpriseITTeam@dev.azure.com/EnterpriseITTeam/Enterprise%20IT-Initiatives/_git/everi_ai_qgpt_python
+-> Download the source code from ADO: https://EnterpriseITTeam@dev.azure.com/EnterpriseITTeam/Enterprise%20IT-Initiatives/_git/qgpt_python
 -> Open cmd and go to React UI folder
-	cd C:\Everi\Application\everi_ai_qgpt_python
-	cd everi_ai_qgpt_ui 
+	cd C:\QGPT\Application\qgpt_python
+	cd qgpt_ui 
 -> Run Npm install command 
 	npm install --legacy-peer-deps
 -> Run Npm build command 
@@ -31,21 +31,21 @@ Step 1. Building EveriQGPT UI using React
 	Open URL: http://localhost:3000/
 	
 	
-Step 2. Conda environment creation for EveriQGPT
+Step 2. Conda environment creation for QGPT
 --------------------------------------------
 -> Install Anaconda (latest version)
 -> Run below commands
 	conda deactivate
 	conda env list
-	conda create --name everi_ai_qgpt_python python=3.11 
-	#conda create -p "C:\Everi\Application\PythonEnv\everi_ai_qgpt_python" python=3.11
+	conda create --name qgpt_python python=3.11 
+	#conda create -p "C:\QGPT\Application\PythonEnv\qgpt_python" python=3.11
 
-	conda activate everi_ai_qgpt_python
+	conda activate qgpt_python
 
 
-Step 3. Install Dependencies/ Packages for EveriQGPT
+Step 3. Install Dependencies/ Packages for QGPTQGPT
 --------------------------------------------
--> Run below command on conda EveriQGPT environment 
+-> Run below command on conda QGPTQGPT environment 
 	pip install -r requirements.txt 
 	
 -> Verify the installed packages 
@@ -53,11 +53,11 @@ Step 3. Install Dependencies/ Packages for EveriQGPT
  
 
 
-Step 4. Install Ollama setup for EveriQGPT
+Step 4. Install Ollama setup for QGPTQGPT
 --------------------------------------------
--> Open cmd and go to EveriQGPT folder
-	cd C:\Everi\Application\everi_ai_qgpt_python
--> Run below command on conda EveriQGPT environment 
+-> Open cmd and go to QGPTQGPT folder
+	cd C:\QGPT\Application\qgpt_python
+-> Run below command on conda QGPTQGPT environment 
 	poetry install --extras "llms-ollama embeddings-ollama vector-stores-qdrant"
 	#poetry install --extras "llms-ollama embeddings-ollama vector-stores-qdrant ui" -- in case of Gradio UI 
 
@@ -75,9 +75,9 @@ set SYCL_CACHE_PERSISTENT=1
 set OLLAMA_NO_INTERNET=true
 
 -> Run below command for setting up PrivateGPT locally 
-	poetry run python -m everi_ai_qgpt_core
+	poetry run python -m qgpt_core
 	
--> Login EveriQGPT, verify the functionality  
+-> Login QGPTQGPT, verify the functionality  
 	URL: http://localhost:8001/
 
 
@@ -94,16 +94,16 @@ End Step.
 =======================================================================================
 
 ***************************************************** 
-**EveriQGPT Dashboard** 
+**QGPTQGPT Dashboard** 
 *****************************************************
-https://dev.azure.com/EnterpriseITTeam/Enterprise%20IT-Initiatives/_git/everi_ai_qgpt_python?path=/everi-qgpt-dashboard.png&version=GBmain
+https://dev.azure.com/EnterpriseITTeam/Enterprise%20IT-Initiatives/_git/qgpt_python?path=/QGPT-qgpt-dashboard.png&version=GBmain
 
 
 
 ***************************************************** 
-**EveriQGPT API Details** 
+**QGPTQGPT API Details** 
 *****************************************************
-https://dev.azure.com/EnterpriseITTeam/Enterprise%20IT-Initiatives/_git/everi_ai_qgpt_python?path=/everi-qgpt-api-list.png&version=GBmain
+https://dev.azure.com/EnterpriseITTeam/Enterprise%20IT-Initiatives/_git/qgpt_python?path=/QGPT-qgpt-api-list.png&version=GBmain
 
 
 
@@ -111,13 +111,13 @@ https://dev.azure.com/EnterpriseITTeam/Enterprise%20IT-Initiatives/_git/everi_ai
 Reference Command:
 ------------------
 
-conda list > Everi_QGPTinstalled_packages.txt
+conda list > QGPT_QGPTinstalled_packages.txt
 
 pip install --upgrade setuptools==75.8.0
 pip install --upgrade virtualenv==20.26.6
 
-conda env remove --name C:\Everi\Application\workspace\py_envs\everiqgpt
-conda env remove --name everiqgpt
+conda env remove --name C:\QGPT\Application\workspace\py_envs\QGPTqgpt
+conda env remove --name QGPTqgpt
 
 pip install -r requirements.txt
 

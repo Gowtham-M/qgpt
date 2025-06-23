@@ -27,4 +27,4 @@ vectorstore:
   database: qdrant
 
 qdrant:
-  path: everi_ai_qgpt_vectordb_qdrant/local_vectordb/qdrant
+  path: qgpt_vectordb_qdrant/local_vectordb/qdrant

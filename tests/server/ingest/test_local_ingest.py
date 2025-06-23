@@ -35,7 +35,7 @@ def init_structure(folder: str, file_path: str) -> None:
 def test_ingest_one_file_in_allowed_folder(
     file_path: str, test_client: TestClient
 ) -> None:
-    allowed_folder = "everi_ai_qgpt_vectordb_qdrant/tests/allowed_folder"
+    allowed_folder = "qgpt_vectordb_qdrant/tests/allowed_folder"
     init_structure(allowed_folder, file_path)
 
     test_env = os.environ.copy()
@@ -57,7 +57,7 @@ def test_ingest_one_file_in_allowed_folder(
 
 
 def test_ingest_disabled(file_path: str) -> None:
-    allowed_folder = "everi_ai_qgpt_vectordb_qdrant/tests/allowed_folder"
+    allowed_folder = "qgpt_vectordb_qdrant/tests/allowed_folder"
     init_structure(allowed_folder, file_path)
 
     test_env = os.environ.copy()

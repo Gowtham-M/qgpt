@@ -20,7 +20,7 @@ data:
   local_ingestion:
     enabled: ${LOCAL_INGESTION_ENABLED:false}
     allow_ingest_from: ["*"]
-  everi_ai_qgpt_vectordb_qdrant_folder: everi_ai_qgpt_vectordb_qdrant/local_vectordb
+  qgpt_vectordb_qdrant_folder: qgpt_vectordb_qdrant/local_vectordb
 
 ui:
   enabled: true
@@ -104,12 +104,12 @@ nodestore:
   database: simple
 
 milvus:
-  uri: everi_ai_qgpt_vectordb_qdrant/local_vectordb/milvus/milvus_local.db
+  uri: qgpt_vectordb_qdrant/local_vectordb/milvus/milvus_local.db
   collection_name: milvus_db
   overwrite: false
 
 qdrant:
-  path: everi_ai_qgpt_vectordb_qdrant/local_vectordb/qdrant
+  path: qgpt_vectordb_qdrant/local_vectordb/qdrant
 
 postgres:
   host: localhost

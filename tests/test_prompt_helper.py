@@ -1,7 +1,7 @@
 import pytest
 from llama_index.core.llms import ChatMessage, MessageRole
 
-from everi_ai_qgpt_core.components.llm.prompt_helper import (
+from qgpt_core.components.llm.prompt_helper import (
     ChatMLPromptStyle,
     DefaultPromptStyle,
     Llama2PromptStyle,

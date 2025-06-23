@@ -1,4 +1,4 @@
-from everi_ai_qgpt_core.settings.settings import Settings, settings
+from qgpt_core.settings.settings import Settings, settings
 from tests.fixtures.mock_injector import MockInjector
 
 

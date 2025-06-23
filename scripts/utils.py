@@ -3,8 +3,8 @@ import os
 import shutil
 from typing import Any, ClassVar
 
-from everi_ai_qgpt_core.paths import everi_ai_qgpt_vectordb_qdrant_path
-from everi_ai_qgpt_core.settings.settings import settings
+from qgpt_core.paths import qgpt_vectordb_qdrant_path
+from qgpt_core.settings.settings import settings
 
 
 def wipe_file(file: str) -> None:
@@ -100,13 +100,13 @@ class Simple:
         )
 
         for store in (DOCSTORE, INDEXSTORE):
-            wipe_file(str((everi_ai_qgpt_vectordb_qdrant_path / store).absolute()))
+            wipe_file(str((qgpt_vectordb_qdrant_path / store).absolute()))
 
 
 class Chroma:
     def wipe(self, store_type: str) -> None:
         assert store_type == "vectorstore"
-        wipe_tree(str((everi_ai_qgpt_vectordb_qdrant_path / "chroma_db").absolute()))
+        wipe_tree(str((qgpt_vectordb_qdrant_path / "chroma_db").absolute()))
 
 
 class Qdrant:

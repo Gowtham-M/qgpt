@@ -1,12 +1,13 @@
 [tool.poetry]
-name = "everi_ai_qgpt_core"
+name = "qgpt_core"
 version = "0.6.2"
-description = "Everi QGPT"
-authors = ["Everi <kali.dutt@everi.com>"]
+description = "QGPT"
+authors =["QGPT <Kali.dutt@QGPT.com."]
+ 
 
 [tool.poetry.dependencies]
 python = ">=3.11,<3.12"
-# EveriGPT
+# GPT
 fastapi = { extras = ["all"], version = "^0.115.0" }
 python-multipart = "^0.0.10"
 injector = "^0.22.0"

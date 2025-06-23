@@ -1,6 +1,6 @@
 from fastapi.testclient import TestClient
 
-from everi_ai_qgpt_core.server.recipes.summarize.summarize_router import (
+from qgpt_core.server.recipes.summarize.summarize_router import (
     SummarizeBody,
     SummarizeResponse,
 )

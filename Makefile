@@ -33,7 +33,7 @@ check:
 ########################################################################################################################
 
 run:
-	poetry run python -m everi_ai_qgpt_core
+	poetry run python -m qgpt_core
 
 dev-windows:
 	(set PGPT_PROFILES=local & poetry run python -m uvicorn private_gpt.main:app --reload --port 8001)
