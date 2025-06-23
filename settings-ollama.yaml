@@ -11,8 +11,7 @@ embedding:
   mode: ollama
 
 ollama:
-  llm_model: ALIENTELLIGENCE/realestatebroker:latest
-
+  llm_model: martain7r/finance-llama-8b:fp16
   embedding_model: nomic-embed-text
   vision_model: llava # Vision model for image analysis
   api_base: http://localhost:11434
