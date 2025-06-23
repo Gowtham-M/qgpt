@@ -128,7 +128,7 @@ class IngestionHelper:
         logger.debug("Transforming file_name=%s into documents", file_name)
         extension = Path(file_name).suffix.lower()
         
-        easyocr_supported_image_extensions = {".jpg", ".jpeg", ".png", ".bmp", ".tiff"}
+        # easyocr_supported_image_extensions = {".jpg", ".jpeg", ".png", ".bmp", ".tiff"}
 
         if extension == ".pdf" and EASY_OCR_PROCESSOR_AVAILABLE:
             try:
@@ -149,22 +149,22 @@ class IngestionHelper:
                 logger.error(f"Error using EasyOcrProcessor for PDF {file_name}: {e}. Falling back to default PDFReader.")
             # Fall through to default PDF reader
 
-        if extension in easyocr_supported_image_extensions and EASY_OCR_PROCESSOR_AVAILABLE:
-            try:
-                logger.info(f"Attempting EasyOCR processing for image: {file_name}")
-                easy_ocr_processor = EasyOcrProcessor() 
-                if easy_ocr_processor.enabled and easy_ocr_processor.reader:
-                    documents = easy_ocr_processor.load_data(file_data, file_name)
-                    if documents:
-                        logger.info(f"Successfully processed image {file_name} with EasyOcrProcessor.")
-                        # NUL byte sanitization and metadata is handled by EasyOcrProcessor
-                        return documents
-                    else:
-                        logger.warning(f"EasyOcrProcessor for image {file_name} returned no documents. Falling back to default ImageReader.")
-                else:
-                    logger.info(f"EasyOcrProcessor is not enabled or reader not initialized for image {file_name}. Falling back to default ImageReader.")
-            except Exception as e:
-                logger.error(f"An unexpected error occurred using EasyOcrProcessor for image {file_name}: {e}. Falling back to default ImageReader.")
+        # if extension in easyocr_supported_image_extensions and EASY_OCR_PROCESSOR_AVAILABLE:
+        #     try:
+        #         logger.info(f"Attempting EasyOCR processing for image: {file_name}")
+        #         easy_ocr_processor = EasyOcrProcessor() 
+        #         if easy_ocr_processor.enabled and easy_ocr_processor.reader:
+        #             documents = easy_ocr_processor.load_data(file_data, file_name)
+        #             if documents:
+        #                 logger.info(f"Successfully processed image {file_name} with EasyOcrProcessor.")
+        #                 # NUL byte sanitization and metadata is handled by EasyOcrProcessor
+        #                 return documents
+        #             else:
+        #                 logger.warning(f"EasyOcrProcessor for image {file_name} returned no documents. Falling back to default ImageReader.")
+        #         else:
+        #             logger.info(f"EasyOcrProcessor is not enabled or reader not initialized for image {file_name}. Falling back to default ImageReader.")
+        #     except Exception as e:
+                # logger.error(f"An unexpected error occurred using EasyOcrProcessor for image {file_name}: {e}. Falling back to default ImageReader.")
 
         # Fall through to default ImageReader if EasyOCR fails or is not applicable
         image_extensions = {".jpg", ".jpeg", ".png"}
