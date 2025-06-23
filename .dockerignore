@@ -5,7 +5,7 @@ models
 .DS_Store
 .mypy_cache
 .ruff_cache
-everi_ai_qgpt_vectordb_qdrant
+qgpt_vectordb_qdrant
 terraform
 tests
 Dockerfile
