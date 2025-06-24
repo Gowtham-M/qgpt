@@ -5,9 +5,9 @@ import { useState, useEffect, useRef, useCallback } from "react";
 // API FUNCTIONS
 // =====================================
 
-const API_URL = "http://52.9.216.105:8000";
+// const API_URL = "http://52.9.216.105:8000";
 // const API_URL = "http://10.30.0.20:8000" // Ensure FastAPI is running
-// const API_URL = process.env.REACT_APP_API_URL || "http://localhost:8000";
+const API_URL = process.env.REACT_APP_API_URL || "http://localhost:8000";
 
 // Send messages to backend (for RAG/Basic modes)
 export const rag_basicmessage = async (
@@ -218,9 +218,15 @@ export const analyzeLocation = async (
   latitude: number,
   longitude: number,
   radius: number = 1000,
-  types: string[] = []
+  types: string[] = [],
+  setCurrentLocation?: (location: {latitude: number, longitude: number}) => void
 ) => {
   try {
+    // Store the location coordinates for follow-up questions if setter is provided
+    if (setCurrentLocation) {
+      setCurrentLocation({ latitude, longitude });
+    }
+    
     const response = await axios.post(`${API_URL}/v1/maps/analyze`, {
       coordinates: {
         latitude,
@@ -244,6 +250,41 @@ export const analyzeLocation = async (
     console.error('Error analyzing location:', error);
     throw error;
   }
+};
+
+// Map chat follow-up function for follow-up questions about a location
+export const mapChatFollowUp = async (
+  messages: { role: string; content: string }[],
+  latitude: number,
+  longitude: number,
+  config?: AxiosRequestConfig,
+  additionalInstructions?: string
+) => {
+  const formattedMessages = [...messages];
+  
+  if (!formattedMessages.some((msg) => msg.role === "system")) {
+    let systemPrompt =
+      "You are a helpful, respectful, and honest assistant specializing in location information and maps. Always answer as helpfully as possible and follow ALL given instructions. Do not speculate or make up information. Style your responses with proper format so it's visually appealing.";
+
+    // Append additional instructions if provided.
+    if (additionalInstructions && additionalInstructions.trim() !== "") {
+      systemPrompt += "\nAdditional Instructions: " + additionalInstructions;
+    }
+    
+    formattedMessages.unshift({ role: "system", content: systemPrompt });
+  }
+  
+  const requestBody = {
+    messages: formattedMessages,
+    coordinates: {
+      latitude,
+      longitude
+    },
+    mode: "Maps"
+  };
+  
+  const response = await axios.post(`${API_URL}/v1/maps/chat`, requestBody, config);
+  return response.data;
 };
 
 // =====================================
@@ -271,6 +312,7 @@ export const useChatHandlers = () => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [mode, setMode] = useState("RAG");
+  const [currentLocation, setCurrentLocation] = useState<{latitude: number, longitude: number} | null>(null);
 
 
   const [currentChatId, setCurrentChatId] = useState<number | null>(null);
@@ -384,6 +426,16 @@ export const useChatHandlers = () => {
         } else {
           botResponse = "No relevant context found.";
         }
+      } else if (mode === "Maps" && currentLocation) {
+        // Handle Maps mode with follow-up questions
+        response = await mapChatFollowUp(
+          limitedHistory,
+          currentLocation.latitude,
+          currentLocation.longitude,
+          { cancelToken: messageCancelTokenRef.current.token },
+          systemPromptInput
+        );
+        botResponse = response.response || "I couldn't analyze this location further.";
       } else if (mode === "RAG" || mode === "AgenticBot" || mode === "ToolCalling") {
         response = await rag_basicmessage(
           limitedHistory,
@@ -788,6 +840,58 @@ export const useChatHandlers = () => {
     }
   };
 
+  // ----------------------------
+  // Handler: map location analysis
+  // ----------------------------
+  const handleAnalyzeLocation = async (latitude: number, longitude: number, radius: number = 1000) => {
+    try {
+      setMessageLoading(true);
+      
+      // Add a user message indicating location analysis request
+      const locationMessage = `Analyze location at coordinates: ${latitude}, ${longitude}`;
+      setMessages((prev) => [
+        ...prev,
+        { role: "user", content: locationMessage, isCached: false },
+        { role: "assistant", content: '<div className="spinner2"></div>', isCached: false },
+      ]);
+      
+      // Update current mode to Maps
+      setMode("Maps");
+      
+      const response = await analyzeLocation(latitude, longitude, radius, [], setCurrentLocation);
+      
+      // Update the assistant message with the analysis
+      const analysisContent = response.analysis || "Could not analyze this location.";
+      setMessages((prev) => {
+        const newMsgs = [...prev];
+        newMsgs[newMsgs.length - 1] = { 
+          role: "assistant", 
+          content: `<strong>Location Analysis:</strong><br/>${analysisContent}`, 
+          isCached: false 
+        };
+        return newMsgs;
+      });
+      
+      return response;
+    } catch (error) {
+      console.error("Error analyzing location:", error);
+      setMessages((prev) => {
+        const newMsgs = [...prev];
+        if (newMsgs[newMsgs.length - 1].role === "assistant") {
+          newMsgs[newMsgs.length - 1] = {
+            role: "assistant",
+            content: "Error analyzing location. Please try again.",
+            isCached: false,
+          };
+        }
+        return newMsgs;
+      });
+      throw error;
+    } finally {
+      setMessageLoading(false);
+    }
+  };
+
   return {
     messages,
     input,
@@ -825,5 +929,8 @@ export const useChatHandlers = () => {
     handleImageChatMessage,
     handleConnectGoogleDrive,
     handleConnectOneDrive,
+    currentLocation,    // New: current location state
+    setCurrentLocation, // New: setter for current location
+    handleAnalyzeLocation, // New: function to analyze map locations
   };
 };

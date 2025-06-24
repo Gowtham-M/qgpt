@@ -14,6 +14,8 @@ from dotenv import load_dotenv
 # Import Ollama client to use the LLM for analysis
 from llama_index.core.llms import ChatMessage, MessageRole
 from qgpt_core.server.chat.chat_service import ChatService
+from qgpt_core.components.llm.llm_component import LLMComponent
+from qgpt_core.server.maps.maps_chat import MapChatService, MapChatRequest, MapChatResponse
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -70,9 +72,9 @@ class LocationAnalysisResponse(BaseModel):
     analysis: Optional[str] = None
 
 
-class MapsService:
+class MapsService:    
     @inject
-    def __init__(self, settings: Settings, chat_service: ChatService):
+    def __init__(self, settings: Settings, chat_service: ChatService, llm_component: LLMComponent):
         # First check environment variable directly (highest priority)
         env_api_key = os.environ.get("GOOGLE_MAPS_API_KEY")
         
@@ -89,6 +91,7 @@ class MapsService:
             self.api_key = "YOUR_GOOGLE_MAPS_API_KEY"  # Placeholder - won't work in production
             
         self.chat_service = chat_service
+        self.llm_component = llm_component
         
     def get_nearby_places(self, location: LocationCoordinates, types: Optional[List[str]] = None) -> List[PlaceDetails]:
         """
@@ -199,10 +202,9 @@ Top place categories:
                 ChatMessage(role=MessageRole.SYSTEM, content="You are a location analysis specialist who provides detailed, insightful analysis of geographic areas based on points of interest data."),
                 ChatMessage(role=MessageRole.USER, content=prompt)
             ]
-            
-            # Use the chat method which returns a Completion object with 'response' attribute
-            response = self.chat_service.chat(messages, use_context=False)
-            analysis = response.response  # This is the correct way to access the response
+              # Use the LLM directly to avoid the 'rag' attribute error
+            response = self.llm_component.llm.chat(messages)
+            analysis = response.message.content
             logger.info(f"Successfully generated location analysis of length: {len(analysis)}")
             
             return LocationAnalysisResponse(
@@ -238,3 +240,22 @@ async def analyze_location(request: LocationAnalysisRequest, req: Request) -> Lo
     except Exception as e:
         logger.error(f"Error analyzing location: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error analyzing location: {str(e)}")
+
+
+@maps_router.post("/chat", response_model=MapChatResponse, summary="Chat about a location analysis")
+async def chat_location_analysis(request: MapChatRequest, req: Request) -> MapChatResponse:
+    """
+    Chat about a location analysis previously conducted
+    """
+    try:
+        # Get injector from request state
+        injector = req.state.injector
+        maps_chat_service = injector.get(MapChatService)
+        
+        # Process the chat message
+        response = await maps_chat_service.process_message(request)
+        return response
+        
+    except Exception as e:
+        logger.error(f"Error in location analysis chat: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error in location analysis chat: {str(e)}")

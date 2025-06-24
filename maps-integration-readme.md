@@ -5,11 +5,13 @@ This feature adds Google Maps location analysis integration to the QGPT applicat
 ## Features Added
 
 1. **Backend Integration**:
+
    - Created a new Maps API router at `/v1/maps/analyze`
    - Implemented Google Places API integration for location data
    - Connected the Maps API with Ollama for intelligent analysis
 
 2. **Frontend Integration**:
+
    - Added a Google Maps component with location search
    - Integrated maps analysis into the chat interface
    - Added a dedicated maps modal for selecting and analyzing locations

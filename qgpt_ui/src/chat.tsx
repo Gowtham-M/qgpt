@@ -479,46 +479,52 @@ const Chat: React.FC = () => {
   const [mapsData, setMapsData] = useState(null);
 
   // Handle Maps analysis results
-  const handleLocationAnalyzed = useCallback((analysisData) => {
-    setMapsData(analysisData);
-    
-    if (!analysisData || !analysisData.analysis) {
-      console.error("No analysis data available");
-      return;
-    }
-    
-    // Format the analysis for sending to the chat
-    const placesCount = analysisData.places.length;
-    const summary = analysisData.summary;
-    
-    // Create a message to display the location analysis
-    let message = `### Location Analysis Results\n\n`;
-    message += analysisData.analysis;
-    
-    message += `\n\n---\n\n`;
-    message += `*Analysis based on ${placesCount} places found within ${summary.place_count}m radius. `;
-    message += `Average rating: ${summary.average_rating.toFixed(1)}/5.0*`;
-    
-    // Add this message as an assistant message directly to the conversation
-    setMessages((prev) => [
-      ...prev, 
-      { 
-        role: "assistant", 
-        content: message,
-        isCached: false 
+  const handleLocationAnalyzed = useCallback(
+    (analysisData) => {
+      setMapsData(analysisData);
+
+      if (!analysisData || !analysisData.analysis) {
+        console.error("No analysis data available");
+        return;
       }
-    ]);
-    
-    // Close the modal
-    setShowMapsModal(false);
-  }, [setMessages]);
+
+      // Format the analysis for sending to the chat
+      const placesCount = analysisData.places.length;
+      const summary = analysisData.summary;
+
+      // Create a message to display the location analysis
+      let message = `### Location Analysis Results\n\n`;
+      message += analysisData.analysis;
+
+      message += `\n\n---\n\n`;
+      message += `*Analysis based on ${placesCount} places found within ${summary.place_count}m radius. `;
+      message += `Average rating: ${summary.average_rating.toFixed(1)}/5.0*`;
+
+      // Add this message as an assistant message directly to the conversation
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: "assistant",
+          content: message,
+          isCached: false,
+        },
+      ]);
+
+      // Close the modal
+      setShowMapsModal(false);
+    },
+    [setMessages]
+  );
 
   // Maps Modal component
   const MapsModal = () => {
     const [mapError, setMapError] = useState(null);
-    
+
     return (
-      <div className={`modal ${showMapsModal ? "show" : ""}`} style={{ display: showMapsModal ? "block" : "none" }}>
+      <div
+        className={`modal ${showMapsModal ? "show" : ""}`}
+        style={{ display: showMapsModal ? "block" : "none" }}
+      >
         <div className="modal-dialog modal-lg">
           <div className="modal-content">
             <div className="modal-header">
@@ -534,14 +540,17 @@ const Chat: React.FC = () => {
               {mapError ? (
                 <div className="alert alert-danger">{mapError}</div>
               ) : (
-                <MapsComponent 
+                <MapsComponent
                   onLocationAnalyzed={handleLocationAnalyzed}
                   isLoading={mapsLoading}
                   setLoading={setMapsLoading}
                 />
               )}
               <div className="text-muted mt-2">
-                <small>Select a location on the map and click "Analyze This Location" to get AI-powered analysis of the area.</small>
+                <small>
+                  Select a location on the map and click "Analyze This Location"
+                  to get AI-powered analysis of the area.
+                </small>
               </div>
             </div>
           </div>
@@ -674,7 +683,13 @@ const Chat: React.FC = () => {
                     onClick={() => setShowMapsModal(true)}
                     title="Analyze Location with Google Maps"
                   >
-                    <FiMap style={{ width: "20px", height: "20px", marginRight: "5px" }} />
+                    <FiMap
+                      style={{
+                        width: "20px",
+                        height: "20px",
+                        marginRight: "5px",
+                      }}
+                    />
                     Maps
                   </button>
                 </div>

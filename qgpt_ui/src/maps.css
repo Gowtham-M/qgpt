@@ -8,7 +8,7 @@
 }
 
 .cloud-btn.maps-btn {
-  background-color: #4285F4;
+  background-color: #4285f4;
   color: #fff;
   margin-left: 5px;
 }
@@ -45,7 +45,7 @@
   background-color: #f9f9f9;
   padding: 15px;
   border-radius: 5px;
-  border-left: 3px solid #4285F4;
+  border-left: 3px solid #4285f4;
 }
 
 .statistics {
@@ -63,8 +63,8 @@
 }
 
 .btn-success {
-  background-color: #34A853;
-  border-color: #34A853;
+  background-color: #34a853;
+  border-color: #34a853;
 }
 
 .btn-success:hover {
