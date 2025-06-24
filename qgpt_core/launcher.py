@@ -24,6 +24,7 @@ from qgpt_core.server.config.config_router import config_router
 from qgpt_core.server.gdrive.gdrive_router import gdrive_router
 from qgpt_core.server.onedrive.onedrive_router import onedrive_router
 from qgpt_core.server.images.images_router import images_router
+from qgpt_core.server.maps.maps_router import maps_router
 from qgpt_core.settings.settings import Settings
 
 
@@ -31,6 +32,10 @@ logger = logging.getLogger(__name__)
 
 def create_app(root_injector: Injector) -> FastAPI:
     """Creates and configures the FastAPI app for integration with React.js."""
+
+    # Register MapsService with the injector
+    from qgpt_core.server.maps.maps_router import MapsService
+    root_injector.binder.bind(MapsService)
 
     async def bind_injector_to_request(request: Request) -> None:
         """Attach the dependency injector to each request."""
@@ -58,6 +63,8 @@ def create_app(root_injector: Injector) -> FastAPI:
     app.include_router(config_router)
     app.include_router(gdrive_router)
     app.include_router(onedrive_router)
+    app.include_router(images_router)
+    app.include_router(maps_router)
 
     # Enable LlamaIndex Observability
     global_handler = create_global_handler("simple")

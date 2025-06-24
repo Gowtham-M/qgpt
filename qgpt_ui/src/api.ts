@@ -5,8 +5,9 @@ import { useState, useEffect, useRef, useCallback } from "react";
 // API FUNCTIONS
 // =====================================
 
-const API_URL = "http://52.9.216.105:8000";
+// const API_URL = "http://52.9.216.105:8000";
 // const API_URL = "http://10.30.0.20:8000" // Ensure FastAPI is running
+const API_URL = process.env.REACT_APP_API_URL || "http://localhost:8000";
 
 // Send messages to backend (for RAG/Basic modes)
 export const rag_basicmessage = async (
@@ -210,6 +211,39 @@ export const ingestDriveFiles = async () => {
 export const ingestOneDriveFiles = async () => {
   const response = await axios.get(`${API_URL}/v1/onedrive/injestfiles`);
   return response.data;
+};
+
+// Google Maps API integration
+export const analyzeLocation = async (
+  latitude: number,
+  longitude: number,
+  radius: number = 1000,
+  types: string[] = []
+) => {
+  try {
+    const response = await axios.post(`${API_URL}/v1/maps/analyze`, {
+      coordinates: {
+        latitude,
+        longitude,
+        radius
+      },
+      types
+    });
+    
+    // Format the analysis for better readability
+    if (response.data && response.data.analysis) {
+      // The analysis is already formatted by the backend
+      return response.data;
+    } else {
+      return {
+        ...response.data,
+        analysis: "Could not generate analysis for this location."
+      };
+    }
+  } catch (error) {
+    console.error('Error analyzing location:', error);
+    throw error;
+  }
 };
 
 // =====================================

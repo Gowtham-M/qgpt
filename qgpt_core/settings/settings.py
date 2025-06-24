@@ -295,43 +295,50 @@ class OllamaSettings(BaseModel):
     )
     embedding_model: str = Field(
         "nomic-embed-text",
-        description="Model to use. Example: 'nomic-embed-text'.",
+        description="Embedding model to use. Example: 'nomic-embed-text'.",
+    )
+    vision_model: str = Field(
+        "llava",
+        description="Vision model to use. Example: 'llava'.",
     )
     keep_alive: str = Field(
         "5m",
-        description="Time the model will stay loaded in memory after a request. examples: 5m, 5h, '-1' ",
+        description="""Controls how long the model will stay loaded into memory.
+        Examples: '1s', '5m', '10h', etc.
+        """,
     )
+    # Ollama generation parameters
     tfs_z: float = Field(
         1.0,
-        description="Tail free sampling is used to reduce the impact of less probable tokens from the output. A higher value (e.g., 2.0) will reduce the impact more, while a value of 1.0 disables this setting.",
-    )
-    num_predict: int = Field(
-        None,
-        description="Maximum number of tokens to predict when generating text. (Default: 128, -1 = infinite generation, -2 = fill context)",
+        description="Tail free sampling parameter. Higher values penalize more rare tokens more. 1.0 disables.",
     )
     top_k: int = Field(
         40,
-        description="Reduces the probability of generating nonsense. A higher value (e.g. 100) will give more diverse answers, while a lower value (e.g. 10) will be more conservative. (Default: 40)",
+        description="Number of tokens to consider for top-k sampling.",
     )
     top_p: float = Field(
         0.9,
-        description="Works together with top-k. A higher value (e.g., 0.95) will lead to more diverse text, while a lower value (e.g., 0.5) will generate more focused and conservative text. (Default: 0.9)",
+        description="Probability threshold for top-p (nucleus) sampling.",
     )
     repeat_last_n: int = Field(
         64,
-        description="Sets how far back for the model to look back to prevent repetition. (Default: 64, 0 = disabled, -1 = num_ctx)",
+        description="Sets how far back for the model to look back to prevent repetition.",
     )
     repeat_penalty: float = Field(
         1.1,
-        description="Sets how strongly to penalize repetitions. A higher value (e.g., 1.5) will penalize repetitions more strongly, while a lower value (e.g., 0.9) will be more lenient. (Default: 1.1)",
+        description="Sets how strongly to penalize repetitions.",
     )
     request_timeout: float = Field(
-        120.0,
-        description="Time elapsed until ollama times out the request. Default is 120s. Format is float. ",
+        1000.0,
+        description="Time in seconds after which the request will time out.",
     )
     autopull_models: bool = Field(
-        False,
-        description="If set to True, the Ollama will automatically pull the models from the API base.",
+        True,
+        description="Whether to automatically pull models if they don't exist.",
+    )
+    num_predict: int = Field(
+        512,
+        description="Maximum number of tokens to predict (Ollama specific).",
     )
 
 
@@ -587,27 +594,32 @@ class MilvusSettings(BaseModel):
     )
 
 
+class GoogleMapsSettings(BaseModel):
+    api_key: str = Field(
+        "",
+        description="Google Maps API key used for location analysis."
+    )
+
+
 class Settings(BaseModel):
     server: ServerSettings
     data: DataSettings
     ui: UISettings
     llm: LLMSettings
     embedding: EmbeddingSettings
-    llamacpp: LlamaCPPSettings
-    huggingface: HuggingFaceSettings
-    sagemaker: SagemakerSettings
-    openai: OpenAISettings
-    gemini: GeminiSettings
-    ollama: OllamaSettings
-    azopenai: AzureOpenAISettings
     vectorstore: VectorstoreSettings
     nodestore: NodeStoreSettings
-    rag: RagSettings
-    summarize: SummarizeSettings
+    llamacpp: LlamaCPPSettings | None = None
+    sagemaker: SagemakerSettings | None = None
+    openai: OpenAISettings | None = None
+    ollama: OllamaSettings | None = None
+    azopenai: AzureOpenAISettings | None = None
+    huggingface: HuggingFaceSettings = Field(default_factory=HuggingFaceSettings)
+    gemini: GeminiSettings | None = None
     qdrant: QdrantSettings | None = None
     postgres: PostgresSettings | None = None
-    clickhouse: ClickHouseSettings | None = None
     milvus: MilvusSettings | None = None
+    maps: GoogleMapsSettings | None = None
 
 
 """
