@@ -54,7 +54,7 @@ class MapChatService:
             if not any(msg.role == "system" for msg in request.messages):
                 system_prompt = f"""You are a helpful assistant specializing in location information. 
 You're discussing a location at coordinates ({request.coordinates.latitude}, {request.coordinates.longitude}).
-Please answer questions about this area based on your knowledge."""
+Please answer questions to help real estate clients understand the area, such as nearby amenities, schools, parks, and transportation options."""
                 
                 messages.append(ChatMessage(role=MessageRole.SYSTEM, content=system_prompt))
             

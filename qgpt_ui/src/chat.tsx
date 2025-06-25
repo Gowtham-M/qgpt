@@ -75,12 +75,22 @@ function saveCachedMessages(messages: any, keySuffix: string) {
 }
 
 const Chat: React.FC = () => {
+  // Import default mode from settings if available
+  const DEFAULT_MODE = "RAG"; // fallback
+  // Try to get from window/global if injected, else fallback
+  let defaultMode = DEFAULT_MODE;
+  if (window && window.qgptSettings && window.qgptSettings.default_mode) {
+    defaultMode = window.qgptSettings.default_mode;
+  }
+
+  // Patch: add setMode from useChatHandlers
   const {
     messages,
     setMessages, // <-- add this to the destructure
     input,
     setInput,
     mode,
+    setMode, // <-- add this to the destructure
     files,
     selectedFiles,
     fileInputRef,
@@ -408,9 +418,16 @@ const Chat: React.FC = () => {
     navigate("/");
   };
 
-  // Add handleSelectChat to set currentChatId
+  // Patch: When Maps modal is opened, set mode to 'Maps'
+  const handleOpenMapsModal = () => {
+    setShowMapsModal(true);
+    if (mode !== "Maps") setMode("Maps");
+  };
+
+  // Patch: When a new chat is created or selected, reset mode to default
   const handleSelectChat = (chat: any) => {
     setCurrentChatId(chat ? chat.id : null);
+    if (mode !== defaultMode) setMode(defaultMode);
   };
 
   // Mic implementation function i.e speech to text
@@ -614,6 +631,7 @@ const Chat: React.FC = () => {
               <option value="Summarize">Summarize</option>
               <option value="AgenticBot">Agentic Bot</option>
               <option value="ToolCalling">Tool Calling</option>
+              <option value="Maps">Maps</option>
             </select>
           </div>{" "}
           <div className="file-upload">
@@ -680,7 +698,7 @@ const Chat: React.FC = () => {
                   </button>
                   <button
                     className="btn cloud-btn maps-btn"
-                    onClick={() => setShowMapsModal(true)}
+                    onClick={handleOpenMapsModal}
                     title="Analyze Location with Google Maps"
                   >
                     <FiMap

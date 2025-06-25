@@ -364,7 +364,7 @@ class AzureOpenAISettings(BaseModel):
 class UISettings(BaseModel):
     enabled: bool
     path: str
-    default_mode: Literal["RAG", "Search", "Basic", "Summarize"] = Field(
+    default_mode: Literal["RAG", "Search", "Basic", "Summarize", 'Maps'] = Field(
         "RAG",
         description="The default mode.",
     )
@@ -378,6 +378,10 @@ class UISettings(BaseModel):
     default_summarization_system_prompt: str = Field(
         None,
         description="The default system prompt to use for the summarization mode.",
+    )
+    default_maps_system_prompt: str = Field(
+        None,
+        description="The default system prompt to use for the Maps mode.",
     )
     delete_file_button_enabled: bool = Field(
         True, description="If the button to delete a file is enabled or not."
