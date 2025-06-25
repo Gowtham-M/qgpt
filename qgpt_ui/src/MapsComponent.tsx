@@ -19,6 +19,7 @@ interface MapsComponentProps {
   onLocationAnalyzed: (analysisData: any) => void;
   isLoading: boolean;
   setLoading: (isLoading: boolean) => void;
+  centerCoords?: LatLngLiteral | null; // NEW PROP
 }
 
 interface LatLngLiteral {
@@ -41,6 +42,7 @@ function MapsComponent({
   onLocationAnalyzed,
   isLoading,
   setLoading,
+  centerCoords, // NEW PROP
 }: MapsComponentProps) {
   const [libraries] = useState<string[]>(["places"]);
   const [center, setCenter] = useState<LatLngLiteral>({
@@ -122,6 +124,21 @@ function MapsComponent({
       }
     });
   };
+
+  // Effect: update center and marker if centerCoords prop changes
+  React.useEffect(() => {
+    if (
+      centerCoords &&
+      (centerCoords.lat !== center.lat || centerCoords.lng !== center.lng)
+    ) {
+      setCenter(centerCoords);
+      setMarkerPosition(centerCoords);
+      if (mapInstance) {
+        mapInstance.panTo(centerCoords);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [centerCoords, center.lat, center.lng, mapInstance]);
 
   return isLoaded ? (
     <div className="maps-container">

@@ -33,6 +33,9 @@ import MapsComponent from "./MapsComponent.tsx";
 import GdriveImg from "./assets/gdrive.png";
 import OneDriveImg from "./assets/one-drive.png";
 import Fiseclogo from "./Fisec_QGPT_Logo.png";
+import { extractCoordinatesFromText } from "./utils/coordinateUtils";
+import { analyzeLocation } from "./api.ts";
+import axios from "axios";
 
 // TypeScript declarations for Speech Recognition API
 declare global {
@@ -491,6 +494,21 @@ const Chat: React.FC = () => {
   const [mapsLoading, setMapsLoading] = useState(false);
   const [mapsData, setMapsData] = useState(null);
 
+  // State to store coordinates for modal opening
+  const [pendingMapCoords, setPendingMapCoords] = useState<{lat: number, lng: number} | null>(null);
+
+  // State to store coordinates for modal display
+  const [mapCoordsForModal, setMapCoordsForModal] = useState<{lat: number, lng: number} | null>(null);
+
+  // Effect to open modal and set coordinates when pendingMapCoords is set
+  useEffect(() => {
+    if (pendingMapCoords) {
+      setMapCoordsForModal(pendingMapCoords); // Store for modal
+      setShowMapsModal(true);
+      setPendingMapCoords(null); // Reset trigger
+    }
+  }, [pendingMapCoords]);
+
   // Handle Maps analysis results
   const handleLocationAnalyzed = useCallback(
     (analysisData) => {
@@ -532,7 +550,6 @@ const Chat: React.FC = () => {
   // Maps Modal component
   const MapsModal = () => {
     const [mapError, setMapError] = useState(null);
-
     return (
       <div
         className={`modal ${showMapsModal ? "show" : ""}`}
@@ -545,7 +562,10 @@ const Chat: React.FC = () => {
               <button
                 type="button"
                 className="btn-close"
-                onClick={() => setShowMapsModal(false)}
+                onClick={() => {
+                  setShowMapsModal(false);
+                  setMapCoordsForModal(null); // Clear on close
+                }}
                 aria-label="Close"
               ></button>
             </div>
@@ -557,6 +577,7 @@ const Chat: React.FC = () => {
                   onLocationAnalyzed={handleLocationAnalyzed}
                   isLoading={mapsLoading}
                   setLoading={setMapsLoading}
+                  centerCoords={mapCoordsForModal}
                 />
               )}
               <div className="text-muted mt-2">
@@ -570,6 +591,119 @@ const Chat: React.FC = () => {
         </div>
       </div>
     );
+  };
+
+  // Patch: Intercept RAG mode for coordinate or location analysis
+  const handleSendMessageWithMaps = async () => {
+    if (!input.trim() || messageLoading) return;
+    // Only intercept in RAG mode
+    if (mode === "RAG") {
+      const coords = extractCoordinatesFromText(input);
+      // New: check for 'location <name>'
+      const locationMatch = input.match(/location\s+([\w\s,.'-]+)/i);
+      if (coords) {
+        try {
+          setMessages((prev) => [
+            ...prev,
+            { role: "user", content: input, isCached: false },
+            { role: "assistant", content: '<div className="spinner2"></div>', isCached: false },
+          ]);
+          setInput("");
+          const result = await analyzeLocation(coords.lat, coords.lng);
+          const message = (result.analysis || "No analysis available.") +
+            `<br/><a href="#" class="open-on-maps-link" data-lat="${coords.lat}" data-lng="${coords.lng}">Open on Maps</a>`;
+          setMessages((prev) => {
+            const newMsgs = [...prev];
+            newMsgs[newMsgs.length - 1] = { role: "assistant", content: message, isCached: false };
+            return newMsgs;
+          });
+          setTimeout(() => {
+            const container = document.querySelector('.responseText');
+            if (container) {
+              container.addEventListener('click', function handler(e) {
+                const target = e.target;
+                if (target && target instanceof HTMLAnchorElement && target.classList.contains('open-on-maps-link')) {
+                  e.preventDefault();
+                  const lat = parseFloat(target.getAttribute('data-lat') || '0');
+                  const lng = parseFloat(target.getAttribute('data-lng') || '0');
+                  setPendingMapCoords({ lat, lng });
+                  container.removeEventListener('click', handler);
+                }
+              });
+            }
+          }, 100);
+          return;
+        } catch (err) {
+          setMessages((prev) => {
+            const newMsgs = [...prev];
+            newMsgs[newMsgs.length - 1] = { role: "assistant", content: "Error analyzing location.", isCached: false };
+            return newMsgs;
+          });
+          setInput("");
+          return;
+        }
+      } else if (locationMatch) {
+        // New: handle 'location <name>'
+        const locationName = locationMatch[1].trim();
+        try {
+          setMessages((prev) => [
+            ...prev,
+            { role: "user", content: input, isCached: false },
+            { role: "assistant", content: '<div className="spinner2"></div>', isCached: false },
+          ]);
+          setInput("");
+          // Geocode the location name using Google Maps Geocoding API
+          const apiKey = process.env.REACT_APP_GOOGLE_MAPS_API_KEY || "AIzaSyCcxJN30ArOo4yHON6oxSkthLXtT4B_p2o";
+          const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(locationName)}&key=${apiKey}`;
+          const geoResp = await axios.get(geocodeUrl);
+          const geoData = geoResp.data;
+          if (geoData.status === "OK" && geoData.results && geoData.results[0]) {
+            const { lat, lng } = geoData.results[0].geometry.location;
+            const result = await analyzeLocation(lat, lng);
+            const message = (result.analysis || "No analysis available.") +
+              `<br/><a href="#" class="open-on-maps-link" data-lat="${lat}" data-lng="${lng}">Open on Maps</a>`;
+            setMessages((prev) => {
+              const newMsgs = [...prev];
+              newMsgs[newMsgs.length - 1] = { role: "assistant", content: message, isCached: false };
+              return newMsgs;
+            });
+            setTimeout(() => {
+              const container = document.querySelector('.responseText');
+              if (container) {
+                container.addEventListener('click', function handler(e) {
+                  const target = e.target;
+                  if (target && target instanceof HTMLAnchorElement && target.classList.contains('open-on-maps-link')) {
+                    e.preventDefault();
+                    const lat = parseFloat(target.getAttribute('data-lat') || '0');
+                    const lng = parseFloat(target.getAttribute('data-lng') || '0');
+                    setPendingMapCoords({ lat, lng });
+                    container.removeEventListener('click', handler);
+                  }
+                });
+              }
+            }, 100);
+            return;
+          } else {
+            setMessages((prev) => {
+              const newMsgs = [...prev];
+              newMsgs[newMsgs.length - 1] = { role: "assistant", content: `Could not find location: ${locationName}`, isCached: false };
+              return newMsgs;
+            });
+            return;
+          }
+        } catch (err) {
+          setMessages((prev) => {
+            const newMsgs = [...prev];
+            newMsgs[newMsgs.length - 1] = { role: "assistant", content: "Error analyzing location.", isCached: false };
+            return newMsgs;
+          });
+          setInput("");
+          return;
+        }
+      }
+    }
+    // Fallback to normal send
+    handleSendMessage();
   };
 
   return (
@@ -973,7 +1107,7 @@ const Chat: React.FC = () => {
                   onKeyDown={(e) => {
                     if (e.key === "Enter" && !e.shiftKey) {
                       e.preventDefault();
-                      handleSendMessage();
+                      handleSendMessageWithMaps();
                     }
                   }}
                   style={{
@@ -1002,7 +1136,7 @@ const Chat: React.FC = () => {
                 <button
                   className="chat-send-btn"
                   onClick={() =>
-                    messageLoading ? handleStopMessage() : handleSendMessage()
+                    messageLoading ? handleStopMessage() : handleSendMessageWithMaps()
                   }
                 >
                   {messageLoading ? "■" : "↑"}
