@@ -616,6 +616,7 @@ class Settings(BaseModel):
     azopenai: AzureOpenAISettings | None = None
     huggingface: HuggingFaceSettings = Field(default_factory=HuggingFaceSettings)
     gemini: GeminiSettings | None = None
+    rag: RagSettings
     qdrant: QdrantSettings | None = None
     postgres: PostgresSettings | None = None
     milvus: MilvusSettings | None = None
