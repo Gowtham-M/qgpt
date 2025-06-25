@@ -306,7 +306,7 @@ const Chat: React.FC = () => {
   useEffect(() => {
     if (currentChatId !== null) {
       // Only load if a chat is selected
-      const cached = loadCachedMessages(`${mode}_${currentChatId}`);
+      const cached = loadCachedMessages(`${currentChatId}`); // Use only chatId as key
       if (cached && cached.length > 0) {
         const withCacheFlag = cached.map((m: any) => ({
           ...m,
@@ -319,7 +319,7 @@ const Chat: React.FC = () => {
     } else {
       setMessages([]); // Ensure no messages are loaded when no chat is selected
     }
-  }, [setMessages, mode, currentChatId]);
+  }, [setMessages, currentChatId]); // Remove mode from dependencies
 
   useEffect(() => {
     setCurrentChatId(null);
@@ -327,10 +327,10 @@ const Chat: React.FC = () => {
 
   useEffect(() => {
     if (currentChatId !== null) {
-      // Save messages for the currently selected chat using a mode-specific key.
-      saveCachedMessages(messages, `${mode}_${currentChatId}`);
+      // Save messages for the currently selected chat using a chatId-specific key.
+      saveCachedMessages(messages, `${currentChatId}`);
     }
-  }, [messages, currentChatId, mode]);
+  }, [messages, currentChatId]); // Remove mode from dependencies
 
   useEffect(() => {
     const container = responseBoxRef.current;
