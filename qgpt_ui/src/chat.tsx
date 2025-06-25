@@ -322,10 +322,6 @@ const Chat: React.FC = () => {
   }, [setMessages, currentChatId]); // Remove mode from dependencies
 
   useEffect(() => {
-    setCurrentChatId(null);
-  }, [mode, setCurrentChatId]);
-
-  useEffect(() => {
     if (currentChatId !== null) {
       // Save messages for the currently selected chat using a chatId-specific key.
       saveCachedMessages(messages, `${currentChatId}`);
