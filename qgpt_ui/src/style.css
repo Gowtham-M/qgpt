@@ -1134,3 +1134,24 @@ div.buttons.primary {
 .image-upload-btn svg {
   color: inherit !important;
 }
+
+/* Query Analysis Notification Styles */
+.query-analysis-notification {
+  animation: slideInRight 0.3s ease-out;
+}
+
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.query-analysis-notification:hover {
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+  transition: box-shadow 0.2s ease-in-out;
+}

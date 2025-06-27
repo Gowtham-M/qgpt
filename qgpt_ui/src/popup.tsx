@@ -57,7 +57,7 @@ const QGPTSettingsModal: React.FC<QGPTSettingsModalProps> = ({
   // When size slider changes, update the string value
   useEffect(() => {
     setSize(sizeMapping[sizeValue]);
-  }, [sizeValue]);
+  }, [sizeValue, sizeMapping]);
 
   // Reset local state when the modal is shown or initialSettings change
   useEffect(() => {
@@ -75,7 +75,7 @@ const QGPTSettingsModal: React.FC<QGPTSettingsModalProps> = ({
     if (embeddingModels.length > 0 && !embeddingModel) {
       setEmbeddingModel(embeddingModels[0]);
     }
-  }, [llmModels, embeddingModels]); // Runs when models update
+  }, [llmModels, embeddingModels, embeddingModel, llmModel]); // Runs when models update
 
   // Fetch models once and split into LLM and embedding models
   useEffect(() => {

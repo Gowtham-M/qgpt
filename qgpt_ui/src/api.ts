@@ -5,9 +5,9 @@ import { useState, useEffect, useRef, useCallback } from "react";
 // API FUNCTIONS
 // =====================================
 
-const API_URL = "http://52.9.216.105:8000";
+// const API_URL = "http://52.9.216.105:8000";
 // const API_URL = "http://10.30.0.20:8000" // Ensure FastAPI is running
-// const API_URL = process.env.REACT_APP_API_URL || "http://localhost:8000";
+const API_URL = process.env.REACT_APP_API_URL || "http://localhost:8000";
 
 // Send messages to backend (for RAG/Basic modes)
 export const rag_basicmessage = async (
@@ -285,6 +285,34 @@ export const mapChatFollowUp = async (
   
   const response = await axios.post(`${API_URL}/v1/maps/chat`, requestBody, config);
   return response.data;
+};
+
+// Query analysis endpoint
+export const analyzeQuery = async (
+  query: string,
+  messages: { role: string; content: string }[] = [],
+  contextFiles: string[] = [],
+  config?: AxiosRequestConfig
+) => {
+  try {
+    const requestBody = {
+      query: query,
+      messages: messages.slice(-3), // Only send last 3 messages for context
+      context_files: contextFiles
+    };
+
+    const response = await axios.post(`${API_URL}/v1/query/analyze`, requestBody, config);
+    return response.data;
+  } catch (error) {
+    console.error('Error analyzing query:', error);
+    // Return default routing on error
+    return {
+      recommended_mode: "RAG",
+      confidence: 0.5,
+      reasoning: "Default routing due to analysis error",
+      extracted_data: null
+    };
+  }
 };
 
 // =====================================

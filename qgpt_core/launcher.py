@@ -25,6 +25,7 @@ from qgpt_core.server.gdrive.gdrive_router import gdrive_router
 from qgpt_core.server.onedrive.onedrive_router import onedrive_router
 from qgpt_core.server.images.images_router import images_router
 from qgpt_core.server.maps.maps_router import maps_router
+from qgpt_core.server.query_router.query_router import query_router
 from qgpt_core.settings.settings import Settings
 
 
@@ -35,7 +36,9 @@ def create_app(root_injector: Injector) -> FastAPI:
 
     # Register MapsService with the injector
     from qgpt_core.server.maps.maps_router import MapsService
+    from qgpt_core.server.query_router.query_router import QueryRoutingService
     root_injector.binder.bind(MapsService)
+    root_injector.binder.bind(QueryRoutingService)
 
     async def bind_injector_to_request(request: Request) -> None:
         """Attach the dependency injector to each request."""
@@ -65,6 +68,7 @@ def create_app(root_injector: Injector) -> FastAPI:
     app.include_router(onedrive_router)
     app.include_router(images_router)
     app.include_router(maps_router)
+    app.include_router(query_router)
 
     # Enable LlamaIndex Observability
     global_handler = create_global_handler("simple")

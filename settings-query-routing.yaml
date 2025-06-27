@@ -1,0 +1,222 @@
+# Intelligent Query Routing Configuration
+# This file contains configuration options for the AI-powered query routing system
+
+query_routing:
+  # Enable/disable the intelligent routing system
+  enabled: true
+  
+  # Confidence threshold for automatic mode switching
+  # Queries with confidence below this threshold will use default mode
+  confidence_threshold: 0.7
+  
+  # Default fallback mode when analysis fails or confidence is low
+  default_mode: "RAG"
+  
+  # Show analysis notifications to users
+  show_notifications: true
+  
+  # Notification auto-dismiss time (seconds)
+  notification_duration: 5
+  
+  # Maximum conversation context to send for analysis
+  max_context_messages: 3
+  
+  # Enable query analysis logging for debugging
+  enable_logging: true
+  
+  # LLM settings for query analysis
+  llm_settings:
+    # Model to use for query analysis (if using Ollama)
+    model: "llama2"  # Adjust based on available models
+    
+    # Temperature for analysis (lower = more consistent)
+    temperature: 0.1
+    
+    # Maximum tokens for analysis response
+    max_tokens: 500
+    
+    # Request timeout for LLM analysis (seconds)
+    timeout: 30
+  
+  # Mode-specific routing rules
+  routing_rules:
+    maps:
+      # Keywords that strongly suggest Maps mode
+      location_keywords:
+        - "coordinates"
+        - "latitude"
+        - "longitude"
+        - "address"
+        - "location"
+        - "near me"
+        - "neighborhood"
+        - "area analysis"
+        - "real estate"
+        - "property"
+        - "places"
+        - "directions"
+        - "navigation"
+      
+      # Coordinate pattern detection
+      coordinate_patterns:
+        - "\\d+\\.\\d+,\\s*-?\\d+\\.\\d+"  # lat,lng format
+        - "latitude.*longitude"
+        - "lat.*lng"
+      
+      # Confidence boost for location queries
+      location_confidence_boost: 0.2
+    
+    rag:
+      # Keywords that suggest document-based queries
+      document_keywords:
+        - "document"
+        - "contract"
+        - "agreement"
+        - "policy"
+        - "what does.*say"
+        - "according to"
+        - "in the document"
+        - "file contains"
+        - "research shows"
+      
+      # Confidence boost for document queries
+      document_confidence_boost: 0.15
+    
+    search:
+      # Keywords that suggest search within documents
+      search_keywords:
+        - "find"
+        - "search for"
+        - "locate"
+        - "show me"
+        - "where is"
+        - "mentions of"
+        - "contains"
+        - "references to"
+      
+      # Confidence boost for search queries
+      search_confidence_boost: 0.1
+    
+    summarize:
+      # Keywords that suggest summarization
+      summary_keywords:
+        - "summarize"
+        - "summary"
+        - "overview"
+        - "brief"
+        - "main points"
+        - "key findings"
+        - "highlights"
+        - "recap"
+        - "condensed"
+      
+      # Confidence boost for summary queries
+      summary_confidence_boost: 0.2
+    
+    basic:
+      # Keywords that suggest casual conversation
+      conversation_keywords:
+        - "how are you"
+        - "hello"
+        - "hi there"
+        - "good morning"
+        - "how's"
+        - "what's up"
+        - "chat"
+        - "talk"
+      
+      # Confidence boost for conversational queries
+      conversation_confidence_boost: 0.1
+    
+    agentic:
+      # Keywords that suggest complex autonomous tasks
+      agentic_keywords:
+        - "plan"
+        - "strategy"
+        - "analyze and recommend"
+        - "comprehensive"
+        - "multi-step"
+        - "workflow"
+        - "process"
+        - "autonomous"
+        - "decision making"
+      
+      # Confidence boost for agentic queries
+      agentic_confidence_boost: 0.15
+    
+    tool_calling:
+      # Keywords that suggest external tool usage
+      tool_keywords:
+        - "calculate"
+        - "computation"
+        - "API"
+        - "external"
+        - "integrate"
+        - "call"
+        - "execute"
+        - "run"
+        - "process with"
+      
+      # Confidence boost for tool calling queries
+      tool_confidence_boost: 0.15
+
+# Advanced analysis settings
+analysis:
+  # System prompt template for query analysis
+  # Variables: {context_info}, {conversation_context}, {available_modes}
+  system_prompt_template: |
+    You are an intelligent query router for a multi-modal AI assistant. Your job is to analyze user queries and determine the best mode to handle them.
+    
+    Available modes:
+    1. **RAG**: For questions that need document-based context, research queries, factual questions that benefit from knowledge base
+    2. **Maps**: For location-based queries, geographic questions, place analysis, navigation, real estate queries  
+    3. **Basic**: For general conversation, creative tasks, casual chat that doesn't need specific data
+    4. **Search**: For finding specific information within documents, keyword-based searches
+    5. **Summarize**: For requests to summarize content, create overviews, condense information
+    6. **AgenticBot**: For complex tasks requiring autonomous decision-making and multi-step planning
+    7. **ToolCalling**: For queries requiring external APIs, calculations, or specific tool usage
+    
+    {context_info}
+    {conversation_context}
+    
+    Instructions:
+    - Analyze the user's query intent, keywords, and context
+    - Consider location indicators: coordinates, addresses, place names, "near me", geographic terms
+    - Consider document-related terms: "search in documents", "what does the document say", "find information about"
+    - Consider summary requests: "summarize", "overview", "brief", "main points"
+    - Consider conversational tone vs information seeking
+    - Look for coordinates in formats like (lat, lng), "latitude X longitude Y", or specific addresses
+    - Pay attention to real estate terms: "neighborhood", "area analysis", "property", "location insights"
+    
+    Respond with this exact JSON format:
+    {
+        "recommended_mode": "MODE_NAME",
+        "confidence": 0.0-1.0,
+        "reasoning": "Brief explanation of why this mode was chosen",
+        "extracted_data": {"coordinates": [lat, lng], "location_name": "name", "keywords": ["key1", "key2"]}
+    }
+
+# Error handling and fallback settings
+error_handling:
+  # What to do when query analysis fails
+  on_analysis_failure: "use_default"  # Options: "use_default", "show_error", "retry"
+  
+  # Maximum retry attempts for failed analysis
+  max_retries: 2
+  
+  # Retry delay in seconds
+  retry_delay: 1
+  
+  # Show error details to users (for debugging)
+  show_error_details: false
+
+# Performance monitoring
+monitoring:
+  # Log query analysis performance metrics
+  log_performance: true
+  
+  # Log user interactions for improvement
+  log_user_feedback: true
+  
+  # Collect anonymized query patterns for model improvement
+  collect_analytics: false
