@@ -5,9 +5,9 @@ import { useState, useEffect, useRef, useCallback } from "react";
 // API FUNCTIONS
 // =====================================
 
-// const API_URL = "http://52.9.216.105:8000";
+const API_URL = "http://52.9.216.105:8000";
 // const API_URL = "http://10.30.0.20:8000" // Ensure FastAPI is running
-const API_URL = process.env.REACT_APP_API_URL || "http://localhost:8000";
+// const API_URL = process.env.REACT_APP_API_URL || "http://localhost:8000";
 
 // Send messages to backend (for RAG/Basic modes)
 export const rag_basicmessage = async (
