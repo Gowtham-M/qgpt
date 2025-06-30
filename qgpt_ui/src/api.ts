@@ -5,9 +5,9 @@ import { useState, useEffect, useRef, useCallback } from "react";
 // API FUNCTIONS
 // =====================================
 
-// const API_URL = "http://52.9.216.105:8000";
+const API_URL = "http://52.9.216.105:8000";
 // const API_URL = "http://10.30.0.20:8000" // Ensure FastAPI is running
-const API_URL = process.env.REACT_APP_API_URL || "http://localhost:8000";
+// const API_URL = process.env.REACT_APP_API_URL || "http://localhost:8000";
 
 // Send messages to backend (for RAG/Basic modes)
 export const rag_basicmessage = async (
@@ -219,22 +219,26 @@ export const analyzeLocation = async (
   longitude: number,
   radius: number = 1000,
   types: string[] = [],
-  setCurrentLocation?: (location: {latitude: number, longitude: number}) => void
+  setCurrentLocation?: (location: {latitude: number, longitude: number}) => void,
+  mapsInfo?: any // New optional parameter
 ) => {
   try {
     // Store the location coordinates for follow-up questions if setter is provided
     if (setCurrentLocation) {
       setCurrentLocation({ latitude, longitude });
     }
-    
-    const response = await axios.post(`${API_URL}/v1/maps/analyze`, {
+    const requestBody: any = {
       coordinates: {
         latitude,
         longitude,
         radius
       },
       types
-    });
+    };
+    if (mapsInfo) {
+      requestBody.mapsInfo = mapsInfo;
+    }
+    const response = await axios.post(`${API_URL}/v1/maps/analyze`, requestBody);
     
     // Format the analysis for better readability
     if (response.data && response.data.analysis) {
@@ -343,6 +347,20 @@ export const ollamaClassifyQuery = async (
     console.error('Error classifying query with Ollama:', error);
     // Default to RAG on error
     return { mode: 'rag' };
+  }
+};
+
+// Analyze a query for maps mode (send query string, not coordinates)
+export const analyzeMapsQuery = async (
+  query: string,
+  config?: AxiosRequestConfig
+) => {
+  try {
+    const response = await axios.post(`${API_URL}/v1/maps/analyze`, { query }, config);
+    return response.data;
+  } catch (error) {
+    console.error('Error analyzing maps query:', error);
+    throw error;
   }
 };
 

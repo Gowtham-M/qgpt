@@ -54,6 +54,7 @@ class LocationCoordinates(BaseModel):
 class LocationAnalysisRequest(BaseModel):
     coordinates: LocationCoordinates = Field(..., description="Coordinates for location analysis")
     types: Optional[List[str]] = Field(None, description="Types of places to include in the analysis")
+    mapsInfo: Optional[dict] = Field(None, description="Full Google Maps API response for the location, if available.")
 
 
 class PlaceDetails(BaseModel):
@@ -140,10 +141,26 @@ class MapsService:
     
     async def analyze_location(self, request: LocationAnalysisRequest) -> LocationAnalysisResponse:
         """
-        Analyze a location based on its coordinates and nearby places
+        Analyze a location based on its coordinates and nearby places or provided mapsInfo
         """
-        # Get nearby places
-        places = self.get_nearby_places(request.coordinates, request.types)
+        # Use provided mapsInfo if available, otherwise fetch nearby places
+        if request.mapsInfo:
+            # Parse places from mapsInfo (assume same structure as Google Maps API response)
+            places_data = request.mapsInfo.get("results", [])
+            places = []
+            for place in places_data:
+                place_details = PlaceDetails(
+                    place_id=place["place_id"],
+                    name=place["name"],
+                    types=place["types"],
+                    vicinity=place.get("vicinity", ""),
+                    rating=place.get("rating"),
+                    user_ratings_total=place.get("user_ratings_total"),
+                    geometry=place["geometry"]
+                )
+                places.append(place_details)
+        else:
+            places = self.get_nearby_places(request.coordinates, request.types)
         
         # Create a summary of the location analysis
         types_count = {}
