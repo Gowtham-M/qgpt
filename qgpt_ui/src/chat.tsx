@@ -34,7 +34,7 @@ import GdriveImg from "./assets/gdrive.png";
 import OneDriveImg from "./assets/one-drive.png";
 import Fiseclogo from "./Fisec_QGPT_Logo.png";
 import { extractCoordinatesFromText } from "./utils/coordinateUtils";
-import { analyzeLocation, analyzeQuery } from "./api.ts";
+import { analyzeLocation, analyzeQuery, ollamaClassifyQuery } from "./api.ts";
 import axios from "axios";
 
 // TypeScript declarations for Speech Recognition API
@@ -593,36 +593,67 @@ const Chat: React.FC = () => {
     );
   };
 
-  // Enhanced: Use AI to intelligently route queries
+  // Enhanced: Use Ollama to intelligently route queries
   const handleSendMessageWithMaps = async () => {
     if (!input.trim() || messageLoading) return;
     try {
-      // First, analyze the query to determine the best routing
-      const fileIds = selectedFiles.length > 0 ? selectedFiles : files.map(f => f.doc_id);
-      const analysisResult = await analyzeQuery(input, messages, fileIds);
-      // Only use the recommended mode internally, do not show or store analysis result in UI
-      const coords = extractCoordinatesFromText(input);
-      const locationMatch = input.match(/location\s+([\w\s,.'-]+)/i);
-      if (coords || locationMatch || analysisResult.recommended_mode === "Maps") {
-        if (mode !== "Maps") {
-          setMode("Maps");
-        }
+      // Use Ollama to classify the query
+      const classifyResult = await ollamaClassifyQuery(input);
+      const modeResult = classifyResult.mode === "maps" ? "Maps" : "RAG";
+      setMode(modeResult);
+      if (modeResult === "Maps") {
+        // Use existing Maps logic
+        const coords = extractCoordinatesFromText(input);
+        const locationMatch = input.match(/location\s+([\w\s,.'-]+)/i);
         if (coords) {
-          try {
-            setMessages((prev) => [
-              ...prev,
-              { role: "user", content: input, isCached: false },
-              {
-                role: "assistant",
-                content: '<div className="spinner2"></div>',
-                isCached: false,
-              },
-            ]);
-            setInput("");
-            const result = await analyzeLocation(coords.lat, coords.lng);
+          setMessages((prev) => [
+            ...prev,
+            { role: "user", content: input, isCached: false },
+            {
+              role: "assistant",
+              content: '<div className="spinner2"></div>',
+              isCached: false,
+            },
+          ]);
+          setInput("");
+          const result = await analyzeLocation(coords.lat, coords.lng);
+          const message =
+            (result.analysis || "No analysis available.") +
+            `<br/><a href="#" class="open-on-maps-link" data-lat="${coords.lat}" data-lng="${coords.lng}">Open on Maps</a>`;
+          setMessages((prev) => {
+            const newMsgs = [...prev];
+            newMsgs[newMsgs.length - 1] = {
+              role: "assistant",
+              content: message,
+              isCached: false,
+            };
+            return newMsgs;
+          });
+          return;
+        } else if (locationMatch) {
+          // Handle 'location <name>'
+          const locationName = locationMatch[1].trim();
+          setMessages((prev) => [
+            ...prev,
+            { role: "user", content: input, isCached: false },
+            {
+              role: "assistant",
+              content: '<div className="spinner2"></div>',
+              isCached: false,
+            },
+          ]);
+          setInput("");
+          // Geocode the location name using Google Maps Geocoding API
+          const apiKey = process.env.REACT_APP_GOOGLE_MAPS_API_KEY || "AIzaSyCcxJN30ArOo4yHON6oxSkthLXtT4B_p2o";
+          const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(locationName)}&key=${apiKey}`;
+          const geoResp = await axios.get(geocodeUrl);
+          const geoData = geoResp.data;
+          if (geoData.status === "OK" && geoData.results && geoData.results[0]) {
+            const { lat, lng } = geoData.results[0].geometry.location;
+            const result = await analyzeLocation(lat, lng);
             const message =
               (result.analysis || "No analysis available.") +
-              `<br/><a href="#" class="open-on-maps-link" data-lat="${coords.lat}" data-lng="${coords.lng}">Open on Maps</a>`;
+              `<br/><a href="#" class="open-on-maps-link" data-lat="${lat}" data-lng="${lng}">Open on Maps</a>`;
             setMessages((prev) => {
               const newMsgs = [...prev];
               newMsgs[newMsgs.length - 1] = {
@@ -632,146 +663,31 @@ const Chat: React.FC = () => {
               };
               return newMsgs;
             });
-            setTimeout(() => {
-              const container = document.querySelector(".responseText");
-              if (container) {
-                container.addEventListener("click", function handler(e) {
-                  const target = e.target;
-                  if (
-                    target &&
-                    target instanceof HTMLAnchorElement &&
-                    target.classList.contains("open-on-maps-link")
-                  ) {
-                    e.preventDefault();
-                    const lat = parseFloat(
-                      target.getAttribute("data-lat") || "0"
-                    );
-                    const lng = parseFloat(
-                      target.getAttribute("data-lng") || "0"
-                    );
-                    setPendingMapCoords({ lat, lng });
-                    container.removeEventListener("click", handler);
-                  }
-                });
-              }
-            }, 100);
             return;
-          } catch (err) {
+          } else {
             setMessages((prev) => {
               const newMsgs = [...prev];
               newMsgs[newMsgs.length - 1] = {
                 role: "assistant",
-                content: "Error analyzing location.",
+                content: `Could not find location: ${locationName}`,
                 isCached: false,
               };
               return newMsgs;
             });
-            setInput("");
-            return;
-          }
-        } else if (locationMatch) {
-          // Handle 'location <name>'
-          const locationName = locationMatch[1].trim();
-          try {
-            setMessages((prev) => [
-              ...prev,
-              { role: "user", content: input, isCached: false },
-              {
-                role: "assistant",
-                content: '<div className="spinner2"></div>',
-                isCached: false,
-              },
-            ]);
-            setInput("");
-            // Geocode the location name using Google Maps Geocoding API
-            const apiKey =
-              process.env.REACT_APP_GOOGLE_MAPS_API_KEY ||
-              "AIzaSyCcxJN30ArOo4yHON6oxSkthLXtT4B_p2o";
-            const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(
-              locationName
-            )}&key=${apiKey}`;
-            const geoResp = await axios.get(geocodeUrl);
-            const geoData = geoResp.data;
-            if (
-              geoData.status === "OK" &&
-              geoData.results &&
-              geoData.results[0]
-            ) {
-              const { lat, lng } = geoData.results[0].geometry.location;
-              const result = await analyzeLocation(lat, lng);
-              const message =
-                (result.analysis || "No analysis available.") +
-                `<br/><a href="#" class="open-on-maps-link" data-lat="${lat}" data-lng="${lng}">Open on Maps</a>`;
-              setMessages((prev) => {
-                const newMsgs = [...prev];
-                newMsgs[newMsgs.length - 1] = {
-                  role: "assistant",
-                  content: message,
-                  isCached: false,
-                };
-                return newMsgs;
-              });
-              setTimeout(() => {
-                const container = document.querySelector(".responseText");
-                if (container) {
-                  container.addEventListener("click", function handler(e) {
-                    const target = e.target;
-                    if (
-                      target &&
-                      target instanceof HTMLAnchorElement &&
-                      target.classList.contains("open-on-maps-link")
-                    ) {
-                      e.preventDefault();
-                      const lat = parseFloat(
-                        target.getAttribute("data-lat") || "0"
-                      );
-                      const lng = parseFloat(
-                        target.getAttribute("data-lng") || "0"
-                      );
-                      setPendingMapCoords({ lat, lng });
-                      container.removeEventListener("click", handler);
-                    }
-                  });
-                }
-              }, 100);
-              return;
-            } else {
-              setMessages((prev) => {
-                const newMsgs = [...prev];
-                newMsgs[newMsgs.length - 1] = {
-                  role: "assistant",
-                  content: `Could not find location: ${locationName}`,
-                  isCached: false,
-                };
-                return newMsgs;
-              });
-              return;
-            }
-          } catch (err) {
-            setMessages((prev) => {
-              const newMsgs = [...prev];
-              newMsgs[newMsgs.length - 1] = {
-                role: "assistant",
-                content: "Error analyzing location.",
-                isCached: false,
-              };
-              return newMsgs;
-            });
-            setInput("");
             return;
           }
         }
         // If Maps mode is recommended but no coordinates/location found, continue to normal handling
-      }
-      // If the AI recommends a different mode, switch to it (internally, no UI message)
-      if (analysisResult.recommended_mode !== mode && analysisResult.confidence > 0.7) {
-        setMode(analysisResult.recommended_mode);
+        // Fallback to normal send message processing
+        handleSendMessage();
+      } else {
+        // RAG mode: fallback to normal send message processing
+        handleSendMessage();
       }
     } catch (error) {
-      // Continue with normal processing if analysis fails
+      // On error, fallback to normal send message processing
+      handleSendMessage();
     }
-    // Fallback to normal send message processing
-    handleSendMessage();
   };
 
   return (

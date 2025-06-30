@@ -5,9 +5,9 @@ import { useState, useEffect, useRef, useCallback } from "react";
 // API FUNCTIONS
 // =====================================
 
-const API_URL = "http://52.9.216.105:8000";
+// const API_URL = "http://52.9.216.105:8000";
 // const API_URL = "http://10.30.0.20:8000" // Ensure FastAPI is running
-// const API_URL = process.env.REACT_APP_API_URL || "http://localhost:8000";
+const API_URL = process.env.REACT_APP_API_URL || "http://localhost:8000";
 
 // Send messages to backend (for RAG/Basic modes)
 export const rag_basicmessage = async (
@@ -312,6 +312,37 @@ export const analyzeQuery = async (
       reasoning: "Default routing due to analysis error",
       extracted_data: null
     };
+  }
+};
+
+// Call Ollama model directly to classify query as 'rag' or 'maps'
+export const ollamaClassifyQuery = async (
+  query: string,
+  config?: AxiosRequestConfig
+) => {
+  try {
+    // Adjust the Ollama endpoint and model name as needed
+    const ollamaUrl = "http://localhost:11434/api/generate";
+    const model = "llama3.2:latest"; // Replace with your actual Ollama model name
+    const prompt = `Classify the following query as either 'rag' or 'maps'. Only respond with 'rag' or 'maps'. Query: ${query}`;
+    const requestBody = {
+      model,
+      prompt,
+      stream: false
+    };
+    const response = await axios.post(ollamaUrl, requestBody, config);
+    // Ollama returns { response: "rag" } or { response: "maps" }
+    const mode = response.data.response.trim().toLowerCase();
+    if (mode === "rag" || mode === "maps") {
+      return { mode };
+    } else {
+      // Fallback to rag if unclear
+      return { mode: "rag" };
+    }
+  } catch (error) {
+    console.error('Error classifying query with Ollama:', error);
+    // Default to RAG on error
+    return { mode: 'rag' };
   }
 };
 
