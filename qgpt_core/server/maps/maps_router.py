@@ -162,12 +162,33 @@ class MapsService:
         elif request.coordinates:
             places = self.get_nearby_places(request.coordinates, request.types)
         elif request.query:
-            # If only a query is provided, return an empty analysis or handle as needed
-            return LocationAnalysisResponse(
-                places=[],
-                summary={"place_count": 0, "types_distribution": {}, "average_rating": 0, "rated_places_count": 0},
-                analysis=f"No coordinates or mapsInfo provided. Query: {request.query}"
-            )
+            # Try to geocode the query string
+            geocode_url = "https://maps.googleapis.com/maps/api/geocode/json"
+            params = {"address": request.query, "key": self.api_key}
+            try:
+                resp = requests.get(geocode_url, params=params)
+                resp.raise_for_status()
+                geo_data = resp.json()
+                if geo_data["status"] == "OK" and geo_data["results"]:
+                    loc = geo_data["results"][0]["geometry"]["location"]
+                    coordinates = LocationCoordinates(latitude=loc["lat"], longitude=loc["lng"], radius=1000)
+                    # Now proceed as if coordinates were provided
+                    places = self.get_nearby_places(coordinates, request.types)
+                    # Patch: set request.coordinates for prompt
+                    request.coordinates = coordinates
+                else:
+                    return LocationAnalysisResponse(
+                        places=[],
+                        summary={"place_count": 0, "types_distribution": {}, "average_rating": 0, "rated_places_count": 0},
+                        analysis=f"Could not geocode location: {request.query}"
+                    )
+            except Exception as e:
+                logger.error(f"Error geocoding query '{request.query}': {str(e)}")
+                return LocationAnalysisResponse(
+                    places=[],
+                    summary={"place_count": 0, "types_distribution": {}, "average_rating": 0, "rated_places_count": 0},
+                    analysis=f"Error geocoding location: {str(e)}"
+                )
         else:
             raise HTTPException(status_code=422, detail="Either coordinates, mapsInfo, or query must be provided.")
         
