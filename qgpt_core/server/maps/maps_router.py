@@ -52,9 +52,10 @@ class LocationCoordinates(BaseModel):
 
 
 class LocationAnalysisRequest(BaseModel):
-    coordinates: LocationCoordinates = Field(..., description="Coordinates for location analysis")
+    coordinates: Optional[LocationCoordinates] = Field(None, description="Coordinates for location analysis")
     types: Optional[List[str]] = Field(None, description="Types of places to include in the analysis")
     mapsInfo: Optional[dict] = Field(None, description="Full Google Maps API response for the location, if available.")
+    query: Optional[str] = Field(None, description="Arbitrary query for maps analysis (if not using coordinates)")
 
 
 class PlaceDetails(BaseModel):
@@ -141,9 +142,8 @@ class MapsService:
     
     async def analyze_location(self, request: LocationAnalysisRequest) -> LocationAnalysisResponse:
         """
-        Analyze a location based on its coordinates and nearby places or provided mapsInfo
+        Analyze a location based on its coordinates and nearby places or provided mapsInfo or query
         """
-        # Use provided mapsInfo if available, otherwise fetch nearby places
         if request.mapsInfo:
             # Parse places from mapsInfo (assume same structure as Google Maps API response)
             places_data = request.mapsInfo.get("results", [])
@@ -159,8 +159,17 @@ class MapsService:
                     geometry=place["geometry"]
                 )
                 places.append(place_details)
-        else:
+        elif request.coordinates:
             places = self.get_nearby_places(request.coordinates, request.types)
+        elif request.query:
+            # If only a query is provided, return an empty analysis or handle as needed
+            return LocationAnalysisResponse(
+                places=[],
+                summary={"place_count": 0, "types_distribution": {}, "average_rating": 0, "rated_places_count": 0},
+                analysis=f"No coordinates or mapsInfo provided. Query: {request.query}"
+            )
+        else:
+            raise HTTPException(status_code=422, detail="Either coordinates, mapsInfo, or query must be provided.")
         
         # Create a summary of the location analysis
         types_count = {}
