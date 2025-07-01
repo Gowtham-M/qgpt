@@ -190,7 +190,7 @@ class MapsService:
     async def get_place_id_from_query(self, query: str) -> Optional[str]:
         """
         Uses Places API (Find Place from Text) to get a Place ID for a query string asynchronously.
-        This is preferred over Geocoding for resolving specific businesses or points of interest.
+        Falls back to Geocoding API for broad locations (cities, regions) if needed.
         """
         find_place_url = f"{self.base_maps_url}/place/findplacefromtext/json"
         params = {
@@ -208,6 +208,11 @@ class MapsService:
                     return data["candidates"][0]["place_id"]
                 else:
                     logger.warning(f"Find Place API failed for query '{query}': {data.get('status', 'Unknown status')}")
+                    # Fallback: Try Geocoding API for city/region
+                    geo = await self.get_coordinates_from_query(query)
+                    if geo:
+                        # Use coordinates as a fallback for Distance Matrix API
+                        return f"{geo.latitude},{geo.longitude}"
                     return None
         except httpx.RequestError as e:
             logger.error(f"Error finding place for query '{query}': {str(e)}")
@@ -216,23 +221,27 @@ class MapsService:
     async def get_distance_between_places(self, origin_query: str, destination_query: str, travel_mode: str = "driving") -> Dict[str, Any]:
         """
         Calculates distance and duration between two locations using Google Distance Matrix API asynchronously.
-        This function will first resolve origin and destination queries to Place IDs.
+        This function will first resolve origin and destination queries to Place IDs or coordinates.
         """
-        # Resolve origin and destination queries to Place IDs
+        # Resolve origin and destination queries to Place IDs or coordinates
         origin_id = await self.get_place_id_from_query(origin_query)
         destination_id = await self.get_place_id_from_query(destination_query)
 
         if not origin_id:
-            logger.warning(f"Could not resolve origin query '{origin_query}' to a Place ID.")
+            logger.warning(f"Could not resolve origin query '{origin_query}' to a Place ID or coordinates.")
             return {"error": f"Could not find a valid origin for '{origin_query}'"}
         if not destination_id:
-            logger.warning(f"Could not resolve destination query '{destination_query}' to a Place ID.")
+            logger.warning(f"Could not resolve destination query '{destination_query}' to a Place ID or coordinates.")
             return {"error": f"Could not find a valid destination for '{destination_query}'"}
+
+        # Accept both place_id:... and lat,lng
+        origins_param = origin_id if "," in origin_id else f"place_id:{origin_id}"
+        destinations_param = destination_id if "," in destination_id else f"place_id:{destination_id}"
 
         distance_matrix_url = f"{self.base_maps_url}/distancematrix/json"
         params = {
-            "origins": f"place_id:{origin_id}",
-            "destinations": f"place_id:{destination_id}",
+            "origins": origins_param,
+            "destinations": destinations_param,
             "mode": travel_mode,
             "key": self.api_key
         }
@@ -248,11 +257,8 @@ class MapsService:
                     if element["status"] == "OK":
                         distance = element["distance"]["value"] / 1000.0  # Convert meters to kilometers
                         duration = element["duration"]["text"]
-                        
-                        # Use the resolved names from the API response for better clarity
                         origin_resolved_name = data["origin_addresses"][0] if data["origin_addresses"] else origin_query
                         destination_resolved_name = data["destination_addresses"][0] if data["destination_addresses"] else destination_query
-
                         return {
                             "origin_name": origin_resolved_name,
                             "destination_name": destination_resolved_name,
