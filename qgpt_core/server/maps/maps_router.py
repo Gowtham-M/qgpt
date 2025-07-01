@@ -498,7 +498,7 @@ Question: {request.query}
                 ChatMessage(role=MessageRole.SYSTEM, content="You are an AI assistant that extracts structured information from user queries about maps, locations, and distances."),
                 ChatMessage(role=MessageRole.USER, content=extraction_prompt)
             ]
-            llm_response = await llm_component.llm.chat(messages)
+            llm_response = llm_component.llm.chat(messages)
             try:
                 extracted = json.loads(llm_response.message.content)
             except Exception:
