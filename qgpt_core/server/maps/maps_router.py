@@ -507,14 +507,18 @@ Question: {request.query}
                 ChatMessage(role=MessageRole.USER, content=extraction_prompt)
             ]
             llm_response = llm_component.llm.chat(messages)
+            logger.info(llm_response+"510")
             try:
+                logger.info("LLM response for extraction: " + llm_response.message.content)
                 extracted = json.loads(llm_response.message.content)
+                logger.info(f"LLM extracted fields: {extracted}")
             except Exception:
                 extracted = {}
             logger.info(f"LLM extracted fields: {extracted}")
             # Build a new request object with extracted fields
             new_request_data = request.dict()
             if extracted.get("origin_query") and extracted.get("destination_query"):
+                logger.info("LLM extracted distance calculation parameters.")
                 new_request_data["origin_query"] = extracted["origin_query"]
                 new_request_data["destination_query"] = extracted["destination_query"]
                 if "travel_mode" in extracted:
