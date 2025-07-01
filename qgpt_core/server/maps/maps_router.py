@@ -16,7 +16,7 @@ from dotenv import load_dotenv
 # Import Ollama client to use the LLM for analysis
 from llama_index.core.llms import ChatMessage, MessageRole
 from qgpt_core.server.chat.chat_service import ChatService
-from qgpt_core.components.lllm.llm_component import LLMComponent
+from qgpt_core.components.llm.llm_component import LLMComponent
 # Ensure MapChatRequest and MapChatResponse are defined or import them if they exist
 from qgpt_core.server.maps.maps_chat import MapChatService, MapChatRequest, MapChatResponse
 
