@@ -34,7 +34,12 @@ import GdriveImg from "./assets/gdrive.png";
 import OneDriveImg from "./assets/one-drive.png";
 import Fiseclogo from "./Fisec_QGPT_Logo.png";
 import { extractCoordinatesFromText } from "./utils/coordinateUtils";
-import { analyzeLocation, analyzeQuery, ollamaClassifyQuery, analyzeMapsQuery } from "./api.ts";
+import {
+  analyzeLocation,
+  analyzeQuery,
+  ollamaClassifyQuery,
+  analyzeMapsQuery,
+} from "./api.ts";
 import axios from "axios";
 
 // TypeScript declarations for Speech Recognition API
@@ -644,17 +649,32 @@ const Chat: React.FC = () => {
           ]);
           setInput("");
           // Geocode the location name using Google Maps Geocoding API
-          const apiKey = process.env.REACT_APP_GOOGLE_MAPS_API_KEY || "AIzaSyCcxJN30ArOo4yHON6oxSkthLXtT4B_p2o";
-          const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(locationName)}&key=${apiKey}`;
+          const apiKey =
+            process.env.REACT_APP_GOOGLE_MAPS_API_KEY ||
+            "AIzaSyCcxJN30ArOo4yHON6oxSkthLXtT4B_p2o";
+          const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(
+            locationName
+          )}&key=${apiKey}`;
           const geoResp = await axios.get(geocodeUrl);
           const geoData = geoResp.data;
-          if (geoData.status === "OK" && geoData.results && geoData.results[0]) {
+          if (
+            geoData.status === "OK" &&
+            geoData.results &&
+            geoData.results[0]
+          ) {
             const { lat, lng } = geoData.results[0].geometry.location;
             // Get Google Maps API response details (e.g., formatted address, place_id, etc.)
             const mapsInfo = geoData.results[0];
             // Send both coordinates and mapsInfo to backend for LLM analysis
             try {
-              const result = await analyzeLocation(lat, lng, 1000, [], undefined, mapsInfo);
+              const result = await analyzeLocation(
+                lat,
+                lng,
+                1000,
+                [],
+                undefined,
+                mapsInfo
+              );
               const message =
                 (result.analysis || "No analysis available.") +
                 `<br/><a href="#" class="open-on-maps-link" data-lat="${lat}" data-lng="${lng}">Open on Maps</a>`;
