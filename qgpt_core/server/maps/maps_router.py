@@ -509,10 +509,18 @@ Question: {request.query}
             llm_response = llm_component.llm.chat(messages)
             logger.info(f"{llm_response} 510")
             try:
-                logger.info("LLM response for extraction: " + llm_response.message.content)
-                extracted = json.loads(llm_response.message.content)
+                llm_content = llm_response.message.content.strip()
+                # Remove markdown code block markers if present
+                if llm_content.startswith('```'):
+                    llm_content = llm_content.strip('`').strip()
+                    # Remove language hint if present (e.g., ```json)
+                    if llm_content.startswith('json'):
+                        llm_content = llm_content[4:].strip()
+                logger.info("LLM response for extraction (cleaned): " + llm_content)
+                extracted = json.loads(llm_content)
                 logger.info(f"LLM extracted fields: {extracted}")
-            except Exception:
+            except Exception as e:
+                logger.error(f"Error parsing LLM extraction response: {e}")
                 extracted = {}
             logger.info(f"LLM extracted fields: {extracted}")
             # Build a new request object with extracted fields
