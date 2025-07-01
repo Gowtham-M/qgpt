@@ -503,20 +503,22 @@ Question: {request.query}
                 extracted = json.loads(llm_response.message.content)
             except Exception:
                 extracted = {}
-            # Update the request object with extracted fields
+            # Build a new request object with extracted fields
+            new_request_data = request.dict()
             if extracted.get("origin_query") and extracted.get("destination_query"):
-                request.origin_query = extracted["origin_query"]
-                request.destination_query = extracted["destination_query"]
+                new_request_data["origin_query"] = extracted["origin_query"]
+                new_request_data["destination_query"] = extracted["destination_query"]
                 if "travel_mode" in extracted:
-                    request.travel_mode = extracted["travel_mode"]
+                    new_request_data["travel_mode"] = extracted["travel_mode"]
             if extracted.get("coordinates"):
                 coords = extracted["coordinates"]
-                request.coordinates = LocationCoordinates(**coords)
+                new_request_data["coordinates"] = coords
             if extracted.get("types"):
-                request.types = extracted["types"]
-            # If the LLM extracted a new query, use it
+                new_request_data["types"] = extracted["types"]
             if extracted.get("query"):
-                request.query = extracted["query"]
+                new_request_data["query"] = extracted["query"]
+            # Reconstruct the request object so the correct logic branch is triggered
+            request = LocationAnalysisRequest(**new_request_data)
 
         # Now proceed as before
         response = await maps_service.analyze_location(request)
