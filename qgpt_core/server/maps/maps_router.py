@@ -508,17 +508,24 @@ Question: {request.query}
             ]
             llm_response = llm_component.llm.chat(messages)
             logger.info(f"{llm_response} 510")
+            import re
             try:
                 llm_content = llm_response.message.content.strip()
-                # Remove markdown code block markers if present
-                if llm_content.startswith('```'):
-                    llm_content = llm_content.strip('`').strip()
-                    # Remove language hint if present (e.g., ```json)
-                    if llm_content.startswith('json'):
-                        llm_content = llm_content[4:].strip()
+                # Remove all markdown code block markers (``` and ```json) from any line
+                llm_content = '\n'.join(
+                    line for line in llm_content.splitlines()
+                    if not line.strip().startswith('```')
+                ).strip()
                 logger.info("LLM response for extraction (cleaned): " + llm_content)
-                extracted = json.loads(llm_content)
-                logger.info(f"LLM extracted fields: {extracted}")
+                # Extract the first JSON object from the response
+                match = re.search(r'\{[\s\S]*?\}', llm_content)
+                if match:
+                    json_str = match.group(0)
+                    extracted = json.loads(json_str)
+                    logger.info(f"LLM extracted fields: {extracted}")
+                else:
+                    logger.error("No JSON object found in LLM response.")
+                    extracted = {}
             except Exception as e:
                 logger.error(f"Error parsing LLM extraction response: {e}")
                 extracted = {}
