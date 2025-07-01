@@ -95,7 +95,7 @@ class MapsService:
     @inject
     def __init__(self, settings: Settings, chat_service: ChatService, llm_component: LLMComponent):
         # First check environment variable directly (highest priority)
-        env_api_key = os.environ.get("Maps_API_KEY")
+        env_api_key = os.environ.get("GOOGLE_MAPS_API_KEY")
         
         # Then check settings if not in environment
         if env_api_key:
