@@ -16,7 +16,7 @@ from dotenv import load_dotenv
 # Import Ollama client to use the LLM for analysis
 from llama_index.core.llms import ChatMessage, MessageRole
 from qgpt_core.server.chat.chat_service import ChatService
-from qgpt_core.components.llm.llm_component import LLMComponent
+from qgpt_core.components.lllm.llm_component import LLMComponent
 # Ensure MapChatRequest and MapChatResponse are defined or import them if they exist
 from qgpt_core.server.maps.maps_chat import MapChatService, MapChatRequest, MapChatResponse
 
@@ -468,18 +468,61 @@ async def analyze_location(request: LocationAnalysisRequest, req: Request) -> Lo
     """
     Analyzes a location using Google Maps API for nearby places and Ollama for analysis,
     OR calculates the distance and travel time between two specified locations.
+    Now supports free-form queries by using the LLM to extract intent and parameters.
     """
     try:
-        # Get injector from request state
         injector = req.state.injector
         maps_service = injector.get(MapsService)
-        
-        # Analyze the location or calculate distance based on the request
+        llm_component = maps_service.llm_component
+
+        # If the request is not structured, but has a free-form query, use LLM to extract intent/parameters
+        if (
+            request.query and not (
+                request.origin_query and request.destination_query
+            ) and not request.coordinates and not request.mapsInfo
+        ):
+            extraction_prompt = f"""
+You are an AI assistant that extracts structured information from user queries about maps, locations, and distances.
+Given the following question, return a JSON object with any of these keys if possible:
+- origin_query (for distance queries)
+- destination_query (for distance queries)
+- coordinates (object with latitude, longitude, and optional radius)
+- types (list of place types)
+If the question is about the distance between two places, extract both origin_query and destination_query.
+If the question is about a location or area, extract coordinates if possible, or just leave the query.
+If you cannot extract any, return an empty JSON object.
+
+Question: {request.query}
+"""
+            messages = [
+                ChatMessage(role=MessageRole.SYSTEM, content="You are an AI assistant that extracts structured information from user queries about maps, locations, and distances."),
+                ChatMessage(role=MessageRole.USER, content=extraction_prompt)
+            ]
+            llm_response = await llm_component.llm.chat(messages)
+            try:
+                extracted = json.loads(llm_response.message.content)
+            except Exception:
+                extracted = {}
+            # Update the request object with extracted fields
+            if extracted.get("origin_query") and extracted.get("destination_query"):
+                request.origin_query = extracted["origin_query"]
+                request.destination_query = extracted["destination_query"]
+                if "travel_mode" in extracted:
+                    request.travel_mode = extracted["travel_mode"]
+            if extracted.get("coordinates"):
+                coords = extracted["coordinates"]
+                request.coordinates = LocationCoordinates(**coords)
+            if extracted.get("types"):
+                request.types = extracted["types"]
+            # If the LLM extracted a new query, use it
+            if extracted.get("query"):
+                request.query = extracted["query"]
+
+        # Now proceed as before
         response = await maps_service.analyze_location(request)
         return response
-        
+
     except HTTPException as e:
-        # Re-raise HTTPExceptions as they are meant to be caught by FastAPI
         raise e
     except Exception as e:
         logger.error(f"Unhandled error in /analyze endpoint: {str(e)}", exc_info=True)
