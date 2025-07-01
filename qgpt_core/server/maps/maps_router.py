@@ -507,7 +507,7 @@ Question: {request.query}
                 ChatMessage(role=MessageRole.USER, content=extraction_prompt)
             ]
             llm_response = llm_component.llm.chat(messages)
-            logger.info(llm_response+"510")
+            logger.info(f"{llm_response} 510")
             try:
                 logger.info("LLM response for extraction: " + llm_response.message.content)
                 extracted = json.loads(llm_response.message.content)
