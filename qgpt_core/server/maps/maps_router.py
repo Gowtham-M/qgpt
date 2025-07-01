@@ -281,9 +281,11 @@ class MapsService:
         # Initialize response object with default empty values
         response_data = LocationAnalysisResponse()
 
+        logger.info(f"analyze_location called with: {request.dict()}")
+
         # --- Primary Logic Branching: Handle Distance Calculation Request First ---
         if request.origin_query and request.destination_query:
-            logger.info(f"Received distance query from '{request.origin_query}' to '{request.destination_query}' with mode '{request.travel_mode}'")
+            logger.info(f"[analyze_location] Routing to distance calculation: origin='{request.origin_query}', destination='{request.destination_query}', travel_mode='{request.travel_mode}'")
             distance_result = await self.get_distance_between_places(
                 request.origin_query, request.destination_query, request.travel_mode
             )
@@ -336,6 +338,7 @@ Please summarize this information for the user in a friendly and clear manner.
         # --- Existing Logic for Location Area Analysis (Nearby Places/Geocoding) ---
         # This block is executed ONLY if it's NOT a distance calculation request
         elif request.mapsInfo:
+            logger.info("[analyze_location] Routing to area analysis: mapsInfo provided.")
             # If raw mapsInfo is provided, parse places from it
             places_data = request.mapsInfo.get("results", [])
             for place in places_data:
@@ -358,11 +361,13 @@ Please summarize this information for the user in a friendly and clear manner.
                 coordinates = request.coordinates
 
         elif request.coordinates:
+            logger.info("[analyze_location] Routing to area analysis: coordinates provided.")
             # If coordinates are directly provided, fetch nearby places
             places = await self.get_nearby_places(request.coordinates, request.types)
             coordinates = request.coordinates # Keep coordinates for prompt generation
         
         elif request.query:
+            logger.info("[analyze_location] Routing to area analysis: query provided.")
             # If only a query string is provided, first geocode it to get coordinates
             resolved_coordinates = await self.get_coordinates_from_query(request.query)
             if resolved_coordinates:
@@ -384,6 +389,7 @@ Please summarize this information for the user in a friendly and clear manner.
                 response_data.analysis = f"Could not geocode location: {request.query}"
                 return response_data
         else:
+            logger.warning("[analyze_location] No valid parameters provided. Raising HTTP 422.")
             # If none of the required parameters are provided, raise an HTTP error
             raise HTTPException(status_code=422, detail="Either coordinates, mapsInfo, query, or origin_query/destination_query must be provided.")
 
@@ -475,6 +481,8 @@ async def analyze_location(request: LocationAnalysisRequest, req: Request) -> Lo
         maps_service = injector.get(MapsService)
         llm_component = maps_service.llm_component
 
+        logger.info(f"/analyze endpoint received request: {request.dict()}")
+
         # If the request is not structured, but has a free-form query, use LLM to extract intent/parameters
         if (
             request.query and not (
@@ -503,6 +511,7 @@ Question: {request.query}
                 extracted = json.loads(llm_response.message.content)
             except Exception:
                 extracted = {}
+            logger.info(f"LLM extracted fields: {extracted}")
             # Build a new request object with extracted fields
             new_request_data = request.dict()
             if extracted.get("origin_query") and extracted.get("destination_query"):
@@ -519,9 +528,10 @@ Question: {request.query}
                 new_request_data["query"] = extracted["query"]
             # Reconstruct the request object so the correct logic branch is triggered
             request = LocationAnalysisRequest(**new_request_data)
+            logger.info(f"Request after LLM extraction: {request.dict()}")
 
-        # Now proceed as before
         response = await maps_service.analyze_location(request)
+        logger.info(f"/analyze endpoint response: {response}")
         return response
 
     except HTTPException as e:
