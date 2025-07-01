@@ -320,7 +320,7 @@ Please summarize this information for the user in a friendly and clear manner.
                         ChatMessage(role=MessageRole.SYSTEM, content="You are a helpful assistant providing travel information."),
                         ChatMessage(role=MessageRole.USER, content=distance_prompt)
                     ]
-                    llm_response = await self.llm_component.llm.chat(messages)
+                    llm_response = self.llm_component.llm.chat(messages)
                     response_data.analysis = llm_response.message.content
                     logger.info("Successfully generated distance analysis summary using LLM.")
                 except Exception as e:
@@ -446,7 +446,7 @@ Top place categories:
                     ChatMessage(role=MessageRole.SYSTEM, content="You are a location analysis specialist who provides detailed, insightful analysis of geographic areas based on points of interest data."),
                     ChatMessage(role=MessageRole.USER, content=prompt)
                 ]
-                llm_response = await self.llm_component.llm.chat(messages)
+                llm_response = self.llm_component.llm.chat(messages)
                 response_data.analysis = llm_response.message.content
                 logger.info(f"Successfully generated location area analysis of length: {len(response_data.analysis)} characters.")
                 
