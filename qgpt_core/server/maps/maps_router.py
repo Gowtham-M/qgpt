@@ -276,6 +276,22 @@ class MapsService:
             logger.error(f"Error calculating distance for '{origin_query}' to '{destination_query}': {str(e)}")
             return {"error": f"Error calculating distance: {str(e)}"}
 
+    def get_commercial_place_types(self) -> list:
+        """
+        Returns a list of Google Places types that are typically associated with commercial zones.
+        """
+        return [
+            "shopping_mall", "store", "supermarket", "department_store", "bank", "restaurant",
+            "cafe", "bar", "night_club", "movie_theater", "gym", "pharmacy", "hospital",
+            "lodging", "travel_agency", "real_estate_agency", "car_dealer", "car_rental",
+            "car_repair", "car_wash", "electronics_store", "furniture_store", "hardware_store",
+            "jewelry_store", "laundry", "lawyer", "insurance_agency", "accounting", "atm",
+            "beauty_salon", "book_store", "bicycle_store", "clothing_store", "convenience_store",
+            "doctor", "dry_cleaner", "florist", "hair_care", "home_goods_store", "liquor_store",
+            "locksmith", "meal_delivery", "meal_takeaway", "painter", "pet_store", "plumber",
+            "post_office", "real_estate_agency", "shoe_store", "spa", "travel_agency"
+        ]
+
     async def analyze_location(self, request: LocationAnalysisRequest) -> LocationAnalysisResponse:
         """
         Analyze a location based on its coordinates and nearby places or provided mapsInfo or query,
@@ -380,11 +396,13 @@ Please summarize this information for the user in a friendly and clear manner.
                 # Use the resolved coordinates for a nearby search.
                 # Use the radius from the original request, or default to 1000m if not specified.
                 search_radius = request.coordinates.radius if request.coordinates and request.coordinates.radius else 1000
+                # If commercial query, use commercial types
+                types = self.get_commercial_place_types() if "commercial" in request.query.lower() and "zone" in request.query.lower() else request.types
                 places = await self.get_nearby_places(LocationCoordinates(
                     latitude=resolved_coordinates.latitude,
                     longitude=resolved_coordinates.longitude,
                     radius=search_radius
-                ), request.types)
+                ), types)
                 coordinates = LocationCoordinates( # Set coordinates for prompt use
                     latitude=resolved_coordinates.latitude,
                     longitude=resolved_coordinates.longitude,
@@ -470,6 +488,37 @@ Top place categories:
             # and it wasn't a distance query.
             if not (request.origin_query and request.destination_query): # Ensure it wasn't a distance query that filled 'analysis'
                 response_data.analysis = "No area analysis was performed as no specific location was identified for proximity search or direct mapsInfo was provided without coordinates."
+
+        # --- Commercial Zone Grouping and LLM Summary ---
+        if "commercial" in request.query.lower() and "zone" in request.query.lower() and places:
+            # Group places by vicinity (or use geometry/location if needed)
+            from collections import defaultdict
+            zone_groups = defaultdict(list)
+            for place in places:
+                key = place.vicinity if place.vicinity else place.name
+                zone_groups[key].append(place)
+            # Prepare a summary for LLM
+            zone_summary = "\n".join([
+                f"- {vicinity}: {len(places)} commercial places (e.g., {', '.join([p.name for p in places[:3]])})"
+                for vicinity, places in sorted(zone_groups.items(), key=lambda x: len(x[1]), reverse=True)[:5]
+            ])
+            prompt = f"""
+You are a location analysis expert. Given the following data for commercial places within a {coordinates.radius}m radius of {request.query} (lat: {coordinates.latitude}, lng: {coordinates.longitude}):
+
+Top commercial zones identified:\n{zone_summary}\n\nPlease summarize the primary commercial zones, their significance, and what types of businesses are most common in each."
+"""
+            try:
+                messages = [
+                    ChatMessage(role=MessageRole.SYSTEM, content="You are a location analysis expert."),
+                    ChatMessage(role=MessageRole.USER, content=prompt)
+                ]
+                llm_response = self.llm_component.llm.chat(messages)
+                response_data.analysis = llm_response.message.content
+                logger.info("Successfully generated commercial zone summary using LLM.")
+            except Exception as e:
+                logger.error(f"Error generating commercial zone summary with LLM: {str(e)}")
+                response_data.analysis = f"Top commercial zones: {zone_summary}"
+            return response_data
 
         return response_data
 
