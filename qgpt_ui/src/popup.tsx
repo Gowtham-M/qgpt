@@ -61,6 +61,7 @@ const QGPTSettingsModal: React.FC<QGPTSettingsModalProps> = ({
 
   // Reset local state when the modal is shown or initialSettings change
   useEffect(() => {
+    console.log("[QGPTSettingsModal] initialSettings:", initialSettings);
     setLlmModel(initialSettings.llmModel);
     setTemperature(initialSettings.temperature);
     setSize(initialSettings.size);
@@ -69,6 +70,10 @@ const QGPTSettingsModal: React.FC<QGPTSettingsModalProps> = ({
   }, [initialSettings, show]);
 
   useEffect(() => {
+    console.log("[QGPTSettingsModal] llmModels:", llmModels);
+    console.log("[QGPTSettingsModal] embeddingModels:", embeddingModels);
+    console.log("[QGPTSettingsModal] llmModel:", llmModel);
+    console.log("[QGPTSettingsModal] embeddingModel:", embeddingModel);
     if (llmModels.length > 0 && !llmModel) {
       setLlmModel(llmModels[0]);
     }
