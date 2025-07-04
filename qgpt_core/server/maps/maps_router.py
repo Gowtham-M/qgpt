@@ -441,6 +441,43 @@ Please summarize this information for the user in a friendly and clear manner.
         }
         response_data.places = places # Assign the found places to the response object
 
+        # --- Find nearest airport, metro, railway station, and bus station if coordinates are available ---
+        nearest_transit = {}
+        if coordinates:
+            transit_types = {
+                "airport": ["airport"],
+                "metro": ["subway_station"],
+                "railway": ["train_station"],
+                "bus": ["bus_station"]
+            }
+            for key, types in transit_types.items():
+                try:
+                    transit_places = await self.get_nearby_places(coordinates, types)
+                    if transit_places:
+                        # Take the closest one (first in the list)
+                        nearest = transit_places[0]
+                        # Calculate distance from input location to this place
+                        distance_info = await self.get_distance_between_places(
+                            f"{coordinates.latitude},{coordinates.longitude}",
+                            nearest.name,
+                            request.travel_mode if hasattr(request, 'travel_mode') else "driving"
+                        )
+                        nearest_transit[key] = {
+                            "name": nearest.name,
+                            "vicinity": nearest.vicinity,
+                            "distance_km": distance_info.get("distance_km"),
+                            "duration_text": distance_info.get("duration_text"),
+                            "place_id": nearest.place_id
+                        }
+                    else:
+                        nearest_transit[key] = None
+                except Exception as e:
+                    logger.error(f"Error finding nearest {key}: {str(e)}")
+                    nearest_transit[key] = None
+        # Attach to response
+        if nearest_transit:
+            response_data.summary["nearest_transit"] = nearest_transit
+
         # --- Generate LLM analysis for the area if coordinates were successfully established ---
         if coordinates:
             # Prepare nearest transit info for the prompt
