@@ -443,6 +443,16 @@ Please summarize this information for the user in a friendly and clear manner.
 
         # --- Generate LLM analysis for the area if coordinates were successfully established ---
         if coordinates:
+            # Prepare nearest transit info for the prompt
+            nearest_transit = response_data.summary.get("nearest_transit", {})
+            transit_section = "\nNearest Transit:\n"
+            for key, label in zip(["airport", "metro", "railway", "bus"], ["Airport", "Metro", "Railway", "Bus Station"]):
+                t = nearest_transit.get(key)
+                if t:
+                    transit_section += f"- {label}: {t['name']} ({t['vicinity']}), {t['distance_km']} km, {t['duration_text']}\n"
+                else:
+                    transit_section += f"- {label}: Not found within search radius\n"
+
             # Construct the prompt for area analysis based on gathered data
             prompt = f"""
 You are a location analysis specialist. I've gathered data about a location at coordinates ({coordinates.latitude}, {coordinates.longitude}).
@@ -458,19 +468,17 @@ Top place categories:
             sorted_types = sorted(types_count.items(), key=lambda x: x[1], reverse=True)[:5]
             for type_name, count in sorted_types:
                 prompt += f"- {type_name}: {count}\n"
-            
             # Add a few notable sample places to the prompt
             prompt += "\nSome notable places include:\n"
             for place in places[:5]: # Take top 5 for the prompt
-                # Use .get() with a default for types to prevent errors if place.types is empty
                 place_types_str = ', '.join(place.types[:2]) if place.types else 'N/A'
                 prompt += f"- {place.name} ({place_types_str}): {place.vicinity}"
                 if place.rating is not None:
                     prompt += f" - Rating: {place.rating}/5.0 ({place.user_ratings_total} reviews)"
                 prompt += "\n"
-                
+            # Add nearest transit section
+            prompt += f"\n{transit_section}\n"
             prompt += "\nBased on this data, please provide a detailed analysis of this area. Include insights about the type of neighborhood, typical activities, demographic insights if possible, and an overall assessment of the area's character and purpose."
-            
             try:
                 messages = [
                     ChatMessage(role=MessageRole.SYSTEM, content="You are a location analysis specialist who provides detailed, insightful analysis of geographic areas based on points of interest data."),
