@@ -324,10 +324,16 @@ export const ollamaClassifyQuery = async (
   query: string,
   config?: AxiosRequestConfig
 ) => {
+  // Keyword-based override for document/file queries
+  const docKeywords = ["document", "file", "pdf", "doc", "report", "sheet", "spreadsheet"];  
+  const isDocQuery = docKeywords.some((kw) => query.toLowerCase().includes(kw));
+  if (isDocQuery) {
+    return { mode: "rag" };
+  }
   try {
     // Adjust the Ollama endpoint and model name as needed
     const ollamaUrl = "http://localhost:11434/api/generate";
-    const model = "llama3.2:latest"; // Replace with your actual Ollama model name
+    const model = "llava:7b"; // Replace with your actual Ollama model name
     const prompt = `Classify the following query as either 'rag' or 'maps'. Only respond with 'rag' or 'maps'. Query: ${query}`;
     const requestBody = {
       model,

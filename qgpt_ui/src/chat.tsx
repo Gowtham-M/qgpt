@@ -602,9 +602,33 @@ const Chat: React.FC = () => {
   const handleSendMessageWithMaps = async () => {
     if (!input.trim() || messageLoading) return;
     try {
+      // Keyword-based override for calculation/cost/area queries
+      const calculationKeywords = [
+        "cost",
+        "price",
+        "per sq m",
+        "per sqm",
+        "per square meter",
+        "per square metre",
+        "area",
+        "total cost",
+        "calculate",
+        "calculation",
+        "% of this area",
+        "percent of this area",
+        "sq m",
+        "sqm",
+      ];
+      const isCalculationQuery = calculationKeywords.some((kw) =>
+        input.toLowerCase().includes(kw)
+      );
       // Use Ollama to classify the query
       const classifyResult = await ollamaClassifyQuery(input);
-      const modeResult = classifyResult.mode === "maps" ? "Maps" : "RAG";
+      let modeResult = classifyResult.mode === "maps" ? "Maps" : "RAG";
+      // Override: If calculation/cost/area keywords are present, force RAG mode
+      if (isCalculationQuery) {
+        modeResult = "RAG";
+      }
       setMode(modeResult);
       if (modeResult === "Maps") {
         // Use existing Maps logic
@@ -624,7 +648,7 @@ const Chat: React.FC = () => {
           const result = await analyzeLocation(coords.lat, coords.lng);
           const message =
             (result.analysis || "No analysis available.") +
-            `<br/><a href=\"#\" class=\"open-on-maps-link\" data-lat=\"${coords.lat}\" data-lng=\"${coords.lng}\">Open on Maps</a>`;
+            `<br/><a href="#" class="open-on-maps-link" data-lat="${coords.lat}" data-lng="${coords.lng}">Open on Maps</a>`;
           setMessages((prev) => {
             const newMsgs = [...prev];
             newMsgs[newMsgs.length - 1] = {
