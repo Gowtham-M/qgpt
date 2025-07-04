@@ -535,7 +535,7 @@ Top place categories:
                 response_data.analysis = "No area analysis was performed as no specific location was identified for proximity search or direct mapsInfo was provided without coordinates."
 
         # --- Commercial Zone Grouping and LLM Summary ---
-        if "commercial" in request.query.lower() and "zone" in request.query.lower() and places:
+        if request.query and "commercial" in request.query.lower() and "zone" in request.query.lower() and places:
             # Group places by vicinity (or use geometry/location if needed)
             from collections import defaultdict
             zone_groups = defaultdict(list)
