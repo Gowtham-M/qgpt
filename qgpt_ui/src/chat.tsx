@@ -402,14 +402,19 @@ const Chat: React.FC = () => {
           isCached: true,
         }));
         setMessages(withCacheFlag);
-        console.log('[QGPT-UI] [DEBUG] Loaded messages from localStorage', { currentChatId, loaded: withCacheFlag });
+        console.log("[QGPT-UI] [DEBUG] Loaded messages from localStorage", {
+          currentChatId,
+          loaded: withCacheFlag,
+        });
       } else {
         setMessages([]);
-        console.log('[QGPT-UI] [DEBUG] No cached messages, setMessages([])', { currentChatId });
+        console.log("[QGPT-UI] [DEBUG] No cached messages, setMessages([])", {
+          currentChatId,
+        });
       }
     } else {
       setMessages([]);
-      console.log('[QGPT-UI] [DEBUG] No chat selected, setMessages([])');
+      console.log("[QGPT-UI] [DEBUG] No chat selected, setMessages([])");
     }
   }, [setMessages, currentChatId]); // Remove mode from dependencies
 
@@ -450,7 +455,7 @@ const Chat: React.FC = () => {
   // Auto-scroll whenever messages change
   useEffect(() => {
     // Log whenever messages state changes
-    console.log('[QGPT-UI] [DEBUG] messages state changed', { messages });
+    console.log("[QGPT-UI] [DEBUG] messages state changed", { messages });
     scrollToBottom();
   }, [messages]);
 
@@ -615,7 +620,7 @@ const Chat: React.FC = () => {
 
       // Extract nearest transit locations if available
       const transitLocations = analysisData.nearest_transit || [];
-      const center = analysisData.center || (mapCoordsForModal || {});
+      const center = analysisData.center || mapCoordsForModal || {};
       // Format the analysis for sending to the chat
       const placesCount = analysisData.places.length;
       const summary = analysisData.summary;
@@ -629,7 +634,11 @@ const Chat: React.FC = () => {
         message += `\n\n**Nearest Transit Locations:**\n`;
         transitLocations.forEach((loc: any) => {
           const gmapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${center.lat},${center.lng}&destination=${loc.lat},${loc.lng}`;
-          message += `- ${loc.type || loc.name}: <a href="${gmapsUrl}" target="_blank">Directions (${loc.distance} m)</a>\n`;
+          message += `- ${
+            loc.type || loc.name
+          }: <a href="${gmapsUrl}" target="_blank">Directions (${
+            loc.distance
+          } m)</a>\n`;
         });
       }
 
@@ -653,7 +662,11 @@ const Chat: React.FC = () => {
   // Maps Modal component
   const MapsModal = () => {
     // Pass transit locations to MapsComponent for marker rendering
-    const transitLocations = (typeof mapsData !== 'undefined' && mapsData && mapsData.nearest_transit) || [];
+    const transitLocations =
+      (typeof mapsData !== "undefined" &&
+        mapsData &&
+        mapsData.nearest_transit) ||
+      [];
     return (
       <div
         className={`modal ${showMapsModal ? "show" : ""}`}
@@ -696,44 +709,74 @@ const Chat: React.FC = () => {
 
   // Enhanced: Use Ollama to intelligently route queries
   const handleSendMessageWithMaps = async () => {
-    console.log('[QGPT-UI] [DEBUG] handleSendMessageWithMaps CALLED', { input, messageLoading, currentChatId, messages });
+    console.log("[QGPT-UI] [DEBUG] handleSendMessageWithMaps CALLED", {
+      input,
+      messageLoading,
+      currentChatId,
+      messages,
+    });
     if (!input.trim() || messageLoading) return;
 
     // Store the user input to display immediately
     const userInput = input.trim();
 
     // LOG: User message about to be added (send button or Enter)
-    console.log('[QGPT-UI] [UserMsg] Adding user message to chat', { userInput, currentChatId, messagesCount: messages.length });
+    console.log("[QGPT-UI] [UserMsg] Adding user message to chat", {
+      userInput,
+      currentChatId,
+      messagesCount: messages.length,
+    });
 
     // Use Ollama to classify the query (with shorter timeout)
-    let modeResult = 'RAG';
+    let modeResult = "RAG";
     let isCalculationQuery = false;
     try {
       const calculationKeywords = [
-        'cost', 'price', 'per sq m', 'per sqm', 'per square meter', 'per square metre', 'area', 'total cost', 'calculate', 'calculation', '% of this area', 'percent of this area', 'sq m', 'sqm',
+        "cost",
+        "price",
+        "per sq m",
+        "per sqm",
+        "per square meter",
+        "per square metre",
+        "area",
+        "total cost",
+        "calculate",
+        "calculation",
+        "% of this area",
+        "percent of this area",
+        "sq m",
+        "sqm",
       ];
-      isCalculationQuery = calculationKeywords.some((kw) => userInput.toLowerCase().includes(kw));
+      isCalculationQuery = calculationKeywords.some((kw) =>
+        userInput.toLowerCase().includes(kw)
+      );
       const classifyResult = await Promise.race([
         ollamaClassifyQuery(userInput),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 2000)),
-      ]).catch(() => ({ mode: 'rag' }));
-      modeResult = (classifyResult as any).mode === 'maps' ? 'Maps' : 'RAG';
-      if (isCalculationQuery) modeResult = 'RAG';
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error("Timeout")), 2000)
+        ),
+      ]).catch(() => ({ mode: "rag" }));
+      modeResult = (classifyResult as any).mode === "maps" ? "Maps" : "RAG";
+      if (isCalculationQuery) modeResult = "RAG";
     } catch (e) {
-      modeResult = 'RAG';
+      modeResult = "RAG";
     }
     setMode(modeResult);
 
     // Only add the user message if handling Maps logic directly, otherwise let handleSendMessage do it
-    if (modeResult === 'Maps') {
+    if (modeResult === "Maps") {
       setMessages((prev) => {
         const newMsgs = [
           ...prev,
-          { role: 'user', content: userInput, isCached: false },
+          { role: "user", content: userInput, isCached: false },
         ];
-        console.log('[QGPT-UI] [UserMsg] setMessages called (user)', { newMsgs });
+        console.log("[QGPT-UI] [UserMsg] setMessages called (user)", {
+          newMsgs,
+        });
         setTimeout(() => {
-          console.log('[QGPT-UI] [UserMsg] messages state after user message', { messages: newMsgs });
+          console.log("[QGPT-UI] [UserMsg] messages state after user message", {
+            messages: newMsgs,
+          });
         }, 0);
         return newMsgs;
       });
@@ -741,55 +784,116 @@ const Chat: React.FC = () => {
       setTimeout(async () => {
         setMessages((prev) => {
           const lastMsg = prev[prev.length - 1];
-          if (lastMsg?.role === 'assistant' && lastMsg?.content.includes('spinner2')) {
+          if (
+            lastMsg?.role === "assistant" &&
+            lastMsg?.content.includes("spinner2")
+          ) {
             return prev;
           }
           const newMsgs = [
             ...prev,
-            { role: 'assistant', content: '<div className="spinner2"></div>', isCached: false },
+            {
+              role: "assistant",
+              content: '<div className="spinner2"></div>',
+              isCached: false,
+            },
           ];
-          console.log('[QGPT-UI] [AssistantMsg] setMessages called (spinner)', { newMsgs });
+          console.log("[QGPT-UI] [AssistantMsg] setMessages called (spinner)", {
+            newMsgs,
+          });
           setTimeout(() => {
-            console.log('[QGPT-UI] [AssistantMsg] messages state after spinner', { messages: newMsgs });
+            console.log(
+              "[QGPT-UI] [AssistantMsg] messages state after spinner",
+              { messages: newMsgs }
+            );
           }, 0);
           return newMsgs;
         });
         try {
-          const coords = extractCoordinatesFromText(userInput);
+          let coords = extractCoordinatesFromText(userInput);
+          // Fallback: regex for coordinates if extractCoordinatesFromText fails
+          if (!coords) {
+            // Matches: 17.385044, 78.486671 or 17.385044 78.486671 (with optional whitespace)
+            const coordRegex = /([-+]?\d{1,2}\.\d+)[,\s]+([-+]?\d{1,3}\.\d+)/;
+            const match = userInput.match(coordRegex);
+            if (match) {
+              coords = { lat: parseFloat(match[1]), lng: parseFloat(match[2]) };
+            }
+          }
           const locationMatch = userInput.match(/location\s+([\w\s,.'-]+)/i);
           if (coords) {
             const result = await analyzeLocation(coords.lat, coords.lng);
-            const message = (result.analysis || 'No analysis available.') + `<br/><a href="#" class="open-on-maps-link" data-lat="${coords.lat}" data-lng="${coords.lng}">Open on Maps</a>`;
+            const message =
+              (result.analysis || "No analysis available.") +
+              `<br/><a href="#" class="open-on-maps-link" data-lat="${coords.lat}" data-lng="${coords.lng}">Open on Maps</a>`;
             setMessages((prev) => {
               const newMsgs = [...prev];
-              newMsgs[newMsgs.length - 1] = { role: 'assistant', content: message, isCached: false };
-              console.log('[QGPT-UI] [AssistantMsg] setMessages called (coords)', { newMsgs });
+              newMsgs[newMsgs.length - 1] = {
+                role: "assistant",
+                content: message,
+                isCached: false,
+              };
+              console.log(
+                "[QGPT-UI] [AssistantMsg] setMessages called (coords)",
+                { newMsgs }
+              );
               return newMsgs;
             });
             return;
           } else if (locationMatch) {
             const locationName = locationMatch[1].trim();
-            const apiKey = process.env.REACT_APP_GOOGLE_MAPS_API_KEY || 'AIzaSyCcxJN30ArOo4yHON6oxSkthLXtT4B_p2o';
-            const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(locationName)}&key=${apiKey}`;
+            const apiKey =
+              process.env.REACT_APP_GOOGLE_MAPS_API_KEY ||
+              "AIzaSyCcxJN30ArOo4yHON6oxSkthLXtT4B_p2o";
+            const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(
+              locationName
+            )}&key=${apiKey}`;
             const geoResp = await axios.get(geocodeUrl);
             const geoData = geoResp.data;
-            if (geoData.status === 'OK' && geoData.results && geoData.results[0]) {
+            if (
+              geoData.status === "OK" &&
+              geoData.results &&
+              geoData.results[0]
+            ) {
               const { lat, lng } = geoData.results[0].geometry.location;
               const mapsInfo = geoData.results[0];
               try {
-                const result = await analyzeLocation(lat, lng, 1000, [], undefined, mapsInfo);
-                const message = (result.analysis || 'No analysis available.') + `<br/><a href="#" class="open-on-maps-link" data-lat="${lat}" data-lng="${lng}">Open on Maps</a>`;
+                const result = await analyzeLocation(
+                  lat,
+                  lng,
+                  1000,
+                  [],
+                  undefined,
+                  mapsInfo
+                );
+                const message =
+                  (result.analysis || "No analysis available.") +
+                  `<br/><a href="#" class="open-on-maps-link" data-lat="${lat}" data-lng="${lng}">Open on Maps</a>`;
                 setMessages((prev) => {
                   const newMsgs = [...prev];
-                  newMsgs[newMsgs.length - 1] = { role: 'assistant', content: message, isCached: false };
-                  console.log('[QGPT-UI] [AssistantMsg] setMessages called (geocode)', { newMsgs });
+                  newMsgs[newMsgs.length - 1] = {
+                    role: "assistant",
+                    content: message,
+                    isCached: false,
+                  };
+                  console.log(
+                    "[QGPT-UI] [AssistantMsg] setMessages called (geocode)",
+                    { newMsgs }
+                  );
                   return newMsgs;
                 });
               } catch (err) {
                 setMessages((prev) => {
                   const newMsgs = [...prev];
-                  newMsgs[newMsgs.length - 1] = { role: 'assistant', content: 'Error analyzing location with LLM.', isCached: false };
-                  console.log('[QGPT-UI] [AssistantMsg] setMessages called (geocode error)', { newMsgs });
+                  newMsgs[newMsgs.length - 1] = {
+                    role: "assistant",
+                    content: "Error analyzing location with LLM.",
+                    isCached: false,
+                  };
+                  console.log(
+                    "[QGPT-UI] [AssistantMsg] setMessages called (geocode error)",
+                    { newMsgs }
+                  );
                   return newMsgs;
                 });
               }
@@ -797,8 +901,15 @@ const Chat: React.FC = () => {
             } else {
               setMessages((prev) => {
                 const newMsgs = [...prev];
-                newMsgs[newMsgs.length - 1] = { role: 'assistant', content: `Could not find location: ${locationName}`, isCached: false };
-                console.log('[QGPT-UI] [AssistantMsg] setMessages called (location not found)', { newMsgs });
+                newMsgs[newMsgs.length - 1] = {
+                  role: "assistant",
+                  content: `Could not find location: ${locationName}`,
+                  isCached: false,
+                };
+                console.log(
+                  "[QGPT-UI] [AssistantMsg] setMessages called (location not found)",
+                  { newMsgs }
+                );
                 return newMsgs;
               });
               return;
@@ -806,18 +917,32 @@ const Chat: React.FC = () => {
           } else {
             try {
               const result = await analyzeMapsQuery(userInput);
-              const message = result.analysis || 'No analysis available.';
+              const message = result.analysis || "No analysis available.";
               setMessages((prev) => {
                 const newMsgs = [...prev];
-                newMsgs[newMsgs.length - 1] = { role: 'assistant', content: message, isCached: false };
-                console.log('[QGPT-UI] [AssistantMsg] setMessages called (maps query)', { newMsgs });
+                newMsgs[newMsgs.length - 1] = {
+                  role: "assistant",
+                  content: message,
+                  isCached: false,
+                };
+                console.log(
+                  "[QGPT-UI] [AssistantMsg] setMessages called (maps query)",
+                  { newMsgs }
+                );
                 return newMsgs;
               });
             } catch (err) {
               setMessages((prev) => {
                 const newMsgs = [...prev];
-                newMsgs[newMsgs.length - 1] = { role: 'assistant', content: 'Error analyzing query for maps.', isCached: false };
-                console.log('[QGPT-UI] [AssistantMsg] setMessages called (maps query error)', { newMsgs });
+                newMsgs[newMsgs.length - 1] = {
+                  role: "assistant",
+                  content: "Error analyzing query for maps.",
+                  isCached: false,
+                };
+                console.log(
+                  "[QGPT-UI] [AssistantMsg] setMessages called (maps query error)",
+                  { newMsgs }
+                );
                 return newMsgs;
               });
             }
@@ -826,8 +951,15 @@ const Chat: React.FC = () => {
         } catch (error) {
           setMessages((prev) => {
             const newMsgs = [...prev];
-            newMsgs[newMsgs.length - 1] = { role: 'assistant', content: 'Error processing maps query.', isCached: false };
-            console.log('[QGPT-UI] [AssistantMsg] setMessages called (maps error)', { newMsgs });
+            newMsgs[newMsgs.length - 1] = {
+              role: "assistant",
+              content: "Error processing maps query.",
+              isCached: false,
+            };
+            console.log(
+              "[QGPT-UI] [AssistantMsg] setMessages called (maps error)",
+              { newMsgs }
+            );
             return newMsgs;
           });
         }
@@ -1256,7 +1388,11 @@ const Chat: React.FC = () => {
                     onKeyDown={(e) => {
                       if (e.key === "Enter" && !e.shiftKey) {
                         e.preventDefault();
-                        console.log('[QGPT-UI] [Input] Enter pressed', { currentChatId, input: input.trim(), messageLoading });
+                        console.log("[QGPT-UI] [Input] Enter pressed", {
+                          currentChatId,
+                          input: input.trim(),
+                          messageLoading,
+                        });
                         if (input.trim() && !messageLoading) {
                           // If no chat is selected, create a new one first
                           if (!currentChatId) {
@@ -1264,17 +1400,23 @@ const Chat: React.FC = () => {
                               .then(() => {
                                 // Use setTimeout to ensure state has updated
                                 setTimeout(() => {
-                                  console.log('[QGPT-UI] [Input] handleSendMessageWithMaps after new chat');
-                                  handleSendMessageWithMaps().catch(console.error);
+                                  console.log(
+                                    "[QGPT-UI] [Input] handleSendMessageWithMaps after new chat"
+                                  );
+                                  handleSendMessageWithMaps().catch(
+                                    console.error
+                                  );
                                 }, 50);
                               })
                               .catch(console.error);
                           } else {
-                            console.log('[QGPT-UI] [Input] Sending message...');
+                            console.log("[QGPT-UI] [Input] Sending message...");
                             handleSendMessageWithMaps().catch(console.error);
                           }
                         } else {
-                          console.log('[QGPT-UI] [Input] Message not sent - conditions not met');
+                          console.log(
+                            "[QGPT-UI] [Input] Message not sent - conditions not met"
+                          );
                         }
                       }
                     }}
@@ -1314,13 +1456,19 @@ const Chat: React.FC = () => {
                               .then(() => {
                                 // Use setTimeout to ensure state has updated
                                 setTimeout(() => {
-                                  console.log('[QGPT-UI] [SendBtn] handleSendMessageWithMaps after new chat');
-                                  handleSendMessageWithMaps().catch(console.error);
+                                  console.log(
+                                    "[QGPT-UI] [SendBtn] handleSendMessageWithMaps after new chat"
+                                  );
+                                  handleSendMessageWithMaps().catch(
+                                    console.error
+                                  );
                                 }, 50);
                               })
                               .catch(console.error);
                           } else {
-                            console.log('[QGPT-UI] [SendBtn] Sending message...');
+                            console.log(
+                              "[QGPT-UI] [SendBtn] Sending message..."
+                            );
                             handleSendMessageWithMaps().catch(console.error);
                           }
                         }

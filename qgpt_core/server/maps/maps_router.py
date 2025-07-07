@@ -535,6 +535,18 @@ Top place categories:
                 prompt += "\n"
             # Add nearest transit section
             prompt += f"\n{transit_section}\n"
+
+            # Add summary of nearest transit distances for LLM
+            if nearest_transit:
+                prompt += "\nNearest transit points and their distances from this location:\n"
+                for key, label in zip(["airport", "metro", "railway", "bus"], ["Airport", "Metro", "Railway Station", "Bus Station"]):
+                    t = nearest_transit.get(key)
+                    if t and t.get('distance_km') is not None:
+                        km = round(t['distance_km'], 1)
+                        prompt += f"- Nearest {label}: {km} km away.\n"
+                    elif t is None:
+                        prompt += f"- Nearest {label}: Not found within search radius.\n"
+
             prompt += "\nBased on this data, please provide a detailed analysis of this area. Include insights about the type of neighborhood, typical activities, demographic insights if possible, and an overall assessment of the area's character and purpose."
             try:
                 messages = [
