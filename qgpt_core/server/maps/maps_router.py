@@ -16,7 +16,7 @@ from dotenv import load_dotenv
 # Import Ollama client to use the LLM for analysis
 from llama_index.core.llms import ChatMessage, MessageRole
 from qgpt_core.server.chat.chat_service import ChatService
-from qgpt_core.components.llm.llm_component import LLMComponent
+from qgpt_core.components.lllm.llm_component import LLMComponent
 # Ensure MapChatRequest and MapChatResponse are defined or import them if they exist
 from qgpt_core.server.maps.maps_chat import MapChatService, MapChatRequest, MapChatResponse
 
@@ -445,9 +445,11 @@ Please summarize this information for the user in a friendly and clear manner.
         response_data.places = places # Assign the found places to the response object
 
         # --- Find nearest airport, metro, railway station, and bus station if coordinates are available ---
+        logger.info("[analyze_location] Starting nearest transit search block.")
         nearest_transit = {}
         nearest_transit_list = []  # <-- new: flat list for UI
         if coordinates:
+            logger.info(f"[analyze_location] Coordinates for transit search: {coordinates}")
             transit_types = {
                 "airport": ["airport"],
                 "metro": ["subway_station"],
@@ -455,15 +457,19 @@ Please summarize this information for the user in a friendly and clear manner.
                 "bus": ["bus_station"]
             }
             for key, types in transit_types.items():
+                logger.info(f"[analyze_location] Searching for nearest {key} with types {types}")
                 try:
                     transit_places = await self.get_nearby_places(coordinates, types)
+                    logger.info(f"[analyze_location] Found {len(transit_places) if transit_places else 0} places for {key}")
                     if transit_places:
                         nearest = transit_places[0]
+                        logger.info(f"[analyze_location] Closest {key}: {nearest.name} ({nearest.vicinity})")
                         distance_info = await self.get_distance_between_places(
                             f"{coordinates.latitude},{coordinates.longitude}",
                             nearest.name,
                             request.travel_mode if hasattr(request, 'travel_mode') else "driving"
                         )
+                        logger.info(f"[analyze_location] Distance info for {key}: {distance_info}")
                         # Extract lat/lng for UI
                         loc = nearest.geometry.get("location", {})
                         entry = {
@@ -479,14 +485,16 @@ Please summarize this information for the user in a friendly and clear manner.
                         nearest_transit[key] = entry
                         nearest_transit_list.append(entry)
                     else:
+                        logger.info(f"[analyze_location] No {key} found within search radius.")
                         nearest_transit[key] = None
                 except Exception as e:
                     logger.error(f"Error finding nearest {key}: {str(e)}")
                     nearest_transit[key] = None
         # Attach to response
+        logger.info(f"[analyze_location] nearest_transit dict: {nearest_transit}")
         if nearest_transit:
             response_data.summary["nearest_transit"] = nearest_transit
-        # Attach flat list for UI
+        logger.info(f"[analyze_location] nearest_transit_list (for UI): {nearest_transit_list}")
         if nearest_transit_list:
             response_data.nearest_transit = nearest_transit_list
 
