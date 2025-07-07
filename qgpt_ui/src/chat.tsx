@@ -603,13 +603,14 @@ const Chat: React.FC = () => {
   // Handle Maps analysis results
   const handleLocationAnalyzed = useCallback(
     (analysisData: any) => {
-      // setMapsData(analysisData); // Comment out undefined function
-
       if (!analysisData || !analysisData.analysis) {
         console.error("No analysis data available");
         return;
       }
 
+      // Extract nearest transit locations if available
+      const transitLocations = analysisData.nearest_transit || [];
+      const center = analysisData.center || (mapCoordsForModal || {});
       // Format the analysis for sending to the chat
       const placesCount = analysisData.places.length;
       const summary = analysisData.summary;
@@ -618,11 +619,19 @@ const Chat: React.FC = () => {
       let message = `### Location Analysis Results\n\n`;
       message += analysisData.analysis;
 
+      // Add links to Google Maps for each transit location
+      if (transitLocations.length > 0 && center.lat && center.lng) {
+        message += `\n\n**Nearest Transit Locations:**\n`;
+        transitLocations.forEach((loc: any) => {
+          const gmapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${center.lat},${center.lng}&destination=${loc.lat},${loc.lng}`;
+          message += `- ${loc.type || loc.name}: <a href="${gmapsUrl}" target="_blank">Directions (${loc.distance} m)</a>\n`;
+        });
+      }
+
       message += `\n\n---\n\n`;
       message += `*Analysis based on ${placesCount} places found within ${summary.place_count}m radius. `;
       message += `Average rating: ${summary.average_rating.toFixed(1)}/5.0*`;
 
-      // Add this message as an assistant message directly to the conversation
       setMessages((prev) => [
         ...prev,
         {
@@ -631,15 +640,15 @@ const Chat: React.FC = () => {
           isCached: false,
         },
       ]);
-
-      // Close the modal
       setShowMapsModal(false);
     },
-    [setMessages]
+    [setMessages, mapCoordsForModal]
   );
 
   // Maps Modal component
   const MapsModal = () => {
+    // Pass transit locations to MapsComponent for marker rendering
+    const transitLocations = (typeof mapsData !== 'undefined' && mapsData && mapsData.nearest_transit) || [];
     return (
       <div
         className={`modal ${showMapsModal ? "show" : ""}`}
@@ -654,7 +663,7 @@ const Chat: React.FC = () => {
                 className="btn-close"
                 onClick={() => {
                   setShowMapsModal(false);
-                  setMapCoordsForModal(null); // Clear on close
+                  setMapCoordsForModal(null);
                 }}
                 aria-label="Close"
               ></button>
@@ -665,6 +674,7 @@ const Chat: React.FC = () => {
                 isLoading={mapsLoading}
                 setLoading={setMapsLoading}
                 centerCoords={mapCoordsForModal}
+                transitLocations={transitLocations}
               />
               <div className="text-muted mt-2">
                 <small>

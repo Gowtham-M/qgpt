@@ -88,6 +88,9 @@ class LocationAnalysisResponse(BaseModel):
     duration_text: Optional[str] = Field(None, description="Human-readable duration text (e.g., '1 hour 30 mins')")
     origin_name: Optional[str] = Field(None, description="Resolved name of the origin location")
     destination_name: Optional[str] = Field(None, description="Resolved name of the destination location")
+    
+    # New field for flat list of nearest transit points (for UI marker rendering)
+    nearest_transit: Optional[List[Dict[str, Any]]] = Field(None, description="List of nearest transit points with lat/lng/type for UI")
 
 
 # --- MapsService Class ---
@@ -443,6 +446,7 @@ Please summarize this information for the user in a friendly and clear manner.
 
         # --- Find nearest airport, metro, railway station, and bus station if coordinates are available ---
         nearest_transit = {}
+        nearest_transit_list = []  # <-- new: flat list for UI
         if coordinates:
             transit_types = {
                 "airport": ["airport"],
@@ -454,21 +458,26 @@ Please summarize this information for the user in a friendly and clear manner.
                 try:
                     transit_places = await self.get_nearby_places(coordinates, types)
                     if transit_places:
-                        # Take the closest one (first in the list)
                         nearest = transit_places[0]
-                        # Calculate distance from input location to this place
                         distance_info = await self.get_distance_between_places(
                             f"{coordinates.latitude},{coordinates.longitude}",
                             nearest.name,
                             request.travel_mode if hasattr(request, 'travel_mode') else "driving"
                         )
-                        nearest_transit[key] = {
+                        # Extract lat/lng for UI
+                        loc = nearest.geometry.get("location", {})
+                        entry = {
+                            "type": key,
                             "name": nearest.name,
                             "vicinity": nearest.vicinity,
+                            "lat": loc.get("lat"),
+                            "lng": loc.get("lng"),
                             "distance_km": distance_info.get("distance_km"),
                             "duration_text": distance_info.get("duration_text"),
                             "place_id": nearest.place_id
                         }
+                        nearest_transit[key] = entry
+                        nearest_transit_list.append(entry)
                     else:
                         nearest_transit[key] = None
                 except Exception as e:
@@ -477,6 +486,9 @@ Please summarize this information for the user in a friendly and clear manner.
         # Attach to response
         if nearest_transit:
             response_data.summary["nearest_transit"] = nearest_transit
+        # Attach flat list for UI
+        if nearest_transit_list:
+            response_data.nearest_transit = nearest_transit_list
 
         # --- Generate LLM analysis for the area if coordinates were successfully established ---
         if coordinates:
