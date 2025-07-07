@@ -313,7 +313,7 @@ const ChatSidebar: React.FC<ChatSidebarProps> = ({
           className="rename-input"
         />
       ) : (
-        <span>{chat.name}</span>
+        <span className="ellipsis-text" title={chat.name}>{chat.name}</span>
       )}
       <span className="chat-item-icons">
         <FiEdit2
@@ -402,20 +402,24 @@ const ChatSidebar: React.FC<ChatSidebarProps> = ({
                     className="rename-input"
                   />
                 ) : (
-                  <span
-                    className="folder-name"
-                    onDoubleClick={(e) => {
-                      e.stopPropagation();
-                      startEditingFolder(folder);
-                    }}
-                  >
-                    {folder.name}
-                  </span>
+                  <div className="folder-tooltip-wrapper">
+                    <span
+                      className="ellipsis-text"
+                      title={folder.name}
+                      onDoubleClick={(e) => {
+                        e.stopPropagation();
+                        startEditingFolder(folder);
+                      }}
+                    >
+                      {folder.name}
+                    </span>
+                    <span className="folder-tooltip">{folder.name}</span>
+                  </div>
                 )}
               </div>
               <div className="folder-header-right">
                 <FiEdit2 className="icon-edit" onClick={(e) => { e.stopPropagation(); startEditingFolder(folder); }} />
-                <FiTrash2 className="icon-trash" onClick={(e) => { e.stopPropagation(); handleDeleteFolder(folder.id); }} />
+                <FiTrash2 className="icon-trash" color="white" onClick={(e) => { e.stopPropagation(); handleDeleteFolder(folder.id); }} />
               </div>
             </div>
             {folderOpen[folder.id] &&
@@ -443,7 +447,7 @@ const ChatSidebar: React.FC<ChatSidebarProps> = ({
       {/* Clear All Conversations Button */}
       <div className="clear-all-container">
         <button className="clear-all-button" onClick={clearAllConversations}>
-          <FiTrash2 className="icon-trash" /> Clear All Conversations
+          <FiTrash2 className="icon-trash" color="white"/> Clear All Conversations
         </button>
       </div>
     </div>

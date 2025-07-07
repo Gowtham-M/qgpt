@@ -23,9 +23,11 @@ import {
   FiSquare,
   FiMic,
   FiMicOff,
-  FiImage, // Add FiImage for image upload icon
-  FiMap, // Add FiMap for maps feature
+  FiImage,
+  FiEdit,
+  FiPlus,
 } from "react-icons/fi";
+import { FaMapMarkedAlt } from "react-icons/fa"; // Add FaMapMarkedAlt  for maps feature
 import EmailLogo from "./EmailLogo.tsx";
 import PromptPanel from "./PromptPanel.tsx";
 import AdditionalInstructions from "./AdditionalInstructions.tsx";
@@ -61,6 +63,24 @@ interface SpeechRecognition extends EventTarget {
   onend: () => void;
 }
 
+// Type definitions for chats and folders
+type Chat = {
+  id: number;
+  name: string;
+  messages: any[];
+};
+
+type Folder = {
+  id: number;
+  name: string;
+  chats: Chat[];
+};
+
+type ChatData = {
+  folders: Folder[];
+  ungroupedChats: Chat[];
+};
+
 // Load messages from localStorage by key mode and chatid
 function loadCachedMessages(keySuffix: string) {
   try {
@@ -87,8 +107,12 @@ const Chat: React.FC = () => {
   const DEFAULT_MODE = "RAG"; // fallback
   // Try to get from window/global if injected, else fallback
   let defaultMode = DEFAULT_MODE;
-  if (window && window.qgptSettings && window.qgptSettings.default_mode) {
-    defaultMode = window.qgptSettings.default_mode;
+  if (
+    window &&
+    (window as any).qgptSettings &&
+    (window as any).qgptSettings.default_mode
+  ) {
+    defaultMode = (window as any).qgptSettings.default_mode;
   }
 
   // Patch: add setMode from useChatHandlers
@@ -132,7 +156,9 @@ const Chat: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const email = location.state?.email || localStorage.getItem("userEmail");
-  const [showInstructions, setShowInstructions] = useState(true);
+  // Initialize with collapsed additional instructions
+  const [showInstructions, setShowInstructions] = useState(false);
+  const [selectedTone, setSelectedTone] = useState("");
   const [showScrollButton, setShowScrollButton] = useState(false);
   const responseBoxRef = useRef<HTMLDivElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
@@ -208,7 +234,7 @@ const Chat: React.FC = () => {
     localStorage.setItem("totalPrompts", JSON.stringify(totalPrompts));
   }, [folders, prompts, totalPrompts]);
 
-  const addPrompt = (newPrompt) => {
+  const addPrompt = (newPrompt: any) => {
     // Check if prompt already exists in folders
     const existingPrompt = prompts.find((prompt) => prompt.id === newPrompt.id);
     if (!existingPrompt) {
@@ -222,7 +248,7 @@ const Chat: React.FC = () => {
     }
   };
 
-  const addPromptToFolder = (folderId: number, newPrompt) => {
+  const addPromptToFolder = (folderId: number, newPrompt: any) => {
     setFolders((prevFolders) =>
       prevFolders.map((folder) =>
         folder.id === folderId
@@ -235,7 +261,7 @@ const Chat: React.FC = () => {
   };
 
   // Update a prompt
-  const updatePrompt = (updatedPrompt) => {
+  const updatePrompt = (updatedPrompt: any) => {
     setPrompts((prev) =>
       prev.map((p) => (p.id === updatedPrompt.id ? updatedPrompt : p))
     );
@@ -304,6 +330,61 @@ const Chat: React.FC = () => {
     setQGPTSettings(settings);
     setShowSettings(false);
   };
+
+  // New chat handling functions
+  const getUniqueChatName = useCallback((): string => {
+    const baseName = "Untitled";
+    const stored = localStorage.getItem(`chatData_${mode}`);
+    if (!stored) return baseName;
+
+    const chatData: ChatData = JSON.parse(stored);
+    const allChats = [
+      ...chatData.ungroupedChats,
+      ...chatData.folders.flatMap((folder) => folder.chats),
+    ];
+
+    const existingNames = new Set(allChats.map((chat) => chat.name));
+
+    if (!existingNames.has(baseName)) {
+      return baseName;
+    }
+
+    let count = 2;
+    while (existingNames.has(`${baseName}(${count})`)) {
+      count++;
+    }
+
+    return `${baseName}(${count})`;
+  }, [mode]);
+
+  const handleNewChat = useCallback(() => {
+    return new Promise<number>((resolve) => {
+      const newChat: Chat = {
+        id: Date.now(),
+        name: getUniqueChatName(),
+        messages: [],
+      };
+
+      // Get current chat data for this mode
+      const stored = localStorage.getItem(`chatData_${mode}`);
+      const chatData: ChatData = stored
+        ? JSON.parse(stored)
+        : { folders: [], ungroupedChats: [] };
+
+      // Add new chat to ungrouped chats
+      chatData.ungroupedChats = [newChat, ...chatData.ungroupedChats];
+
+      // Save back to localStorage
+      localStorage.setItem(`chatData_${mode}`, JSON.stringify(chatData));
+
+      // Select the new chat
+      setCurrentChatId(newChat.id);
+      setMessages([]);
+
+      // Resolve with the new chat ID
+      resolve(newChat.id);
+    });
+  }, [getUniqueChatName, mode, setCurrentChatId, setMessages]);
 
   useEffect(() => {
     if (!email) {
@@ -521,8 +602,8 @@ const Chat: React.FC = () => {
 
   // Handle Maps analysis results
   const handleLocationAnalyzed = useCallback(
-    (analysisData) => {
-      setMapsData(analysisData);
+    (analysisData: any) => {
+      // setMapsData(analysisData); // Comment out undefined function
 
       if (!analysisData || !analysisData.analysis) {
         console.error("No analysis data available");
@@ -601,107 +682,167 @@ const Chat: React.FC = () => {
   // Enhanced: Use Ollama to intelligently route queries
   const handleSendMessageWithMaps = async () => {
     if (!input.trim() || messageLoading) return;
-    try {
-      // Keyword-based override for calculation/cost/area queries
-      const calculationKeywords = [
-        "cost",
-        "price",
-        "per sq m",
-        "per sqm",
-        "per square meter",
-        "per square metre",
-        "area",
-        "total cost",
-        "calculate",
-        "calculation",
-        "% of this area",
-        "percent of this area",
-        "sq m",
-        "sqm",
-      ];
-      const isCalculationQuery = calculationKeywords.some((kw) =>
-        input.toLowerCase().includes(kw)
-      );
-      // Use Ollama to classify the query
-      const classifyResult = await ollamaClassifyQuery(input);
-      let modeResult = classifyResult.mode === "maps" ? "Maps" : "RAG";
-      // Override: If calculation/cost/area keywords are present, force RAG mode
-      if (isCalculationQuery) {
-        modeResult = "RAG";
-      }
-      setMode(modeResult);
-      if (modeResult === "Maps") {
-        // Use existing Maps logic
-        const coords = extractCoordinatesFromText(input);
-        const locationMatch = input.match(/location\s+([\w\s,.'-]+)/i);
-        if (coords) {
-          setMessages((prev) => [
-            ...prev,
-            { role: "user", content: input, isCached: false },
-            {
-              role: "assistant",
-              content: '<div className="spinner2"></div>',
-              isCached: false,
-            },
-          ]);
-          setInput("");
-          const result = await analyzeLocation(coords.lat, coords.lng);
-          const message =
-            (result.analysis || "No analysis available.") +
-            `<br/><a href="#" class="open-on-maps-link" data-lat="${coords.lat}" data-lng="${coords.lng}">Open on Maps</a>`;
-          setMessages((prev) => {
-            const newMsgs = [...prev];
-            newMsgs[newMsgs.length - 1] = {
-              role: "assistant",
-              content: message,
-              isCached: false,
-            };
-            return newMsgs;
-          });
-          return;
-        } else if (locationMatch) {
-          // Handle 'location <name>'
-          const locationName = locationMatch[1].trim();
-          setMessages((prev) => [
-            ...prev,
-            { role: "user", content: input, isCached: false },
-            {
-              role: "assistant",
-              content: '<div className="spinner2"></div>',
-              isCached: false,
-            },
-          ]);
-          setInput("");
-          // Geocode the location name using Google Maps Geocoding API
-          const apiKey =
-            process.env.REACT_APP_GOOGLE_MAPS_API_KEY ||
-            "AIzaSyCcxJN30ArOo4yHON6oxSkthLXtT4B_p2o";
-          const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(
-            locationName
-          )}&key=${apiKey}`;
-          const geoResp = await axios.get(geocodeUrl);
-          const geoData = geoResp.data;
-          if (
-            geoData.status === "OK" &&
-            geoData.results &&
-            geoData.results[0]
-          ) {
-            const { lat, lng } = geoData.results[0].geometry.location;
-            // Get Google Maps API response details (e.g., formatted address, place_id, etc.)
-            const mapsInfo = geoData.results[0];
-            // Send both coordinates and mapsInfo to backend for LLM analysis
+
+    // Store the user input to display immediately
+    const userInput = input.trim();
+
+    // Add user message to chat immediately for better UX
+    setMessages((prev) => [
+      ...prev,
+      { role: "user", content: userInput, isCached: false },
+    ]);
+
+    // Clear input immediately so user can start typing next message
+    setInput("");
+
+    // Use setTimeout to ensure UI updates before processing
+    setTimeout(async () => {
+      // Add loading indicator immediately (only if not already present)
+      setMessages((prev) => {
+        const lastMsg = prev[prev.length - 1];
+        if (
+          lastMsg?.role === "assistant" &&
+          lastMsg?.content.includes("spinner2")
+        ) {
+          // Loading indicator already exists, don't add another
+          return prev;
+        }
+        return [
+          ...prev,
+          {
+            role: "assistant",
+            content: '<div className="spinner2"></div>',
+            isCached: false,
+          },
+        ];
+      });
+
+      try {
+        // Keyword-based override for calculation/cost/area queries
+        const calculationKeywords = [
+          "cost",
+          "price",
+          "per sq m",
+          "per sqm",
+          "per square meter",
+          "per square metre",
+          "area",
+          "total cost",
+          "calculate",
+          "calculation",
+          "% of this area",
+          "percent of this area",
+          "sq m",
+          "sqm",
+        ];
+        const isCalculationQuery = calculationKeywords.some((kw) =>
+          userInput.toLowerCase().includes(kw)
+        );
+        // Use Ollama to classify the query (with shorter timeout)
+        const classifyResult = await Promise.race([
+          ollamaClassifyQuery(userInput),
+          new Promise((_, reject) =>
+            setTimeout(() => reject(new Error("Timeout")), 2000)
+          ),
+        ]).catch(() => ({ mode: "rag" })); // Default to RAG on timeout or error
+
+        let modeResult =
+          (classifyResult as any).mode === "maps" ? "Maps" : "RAG";
+        // Override: If calculation/cost/area keywords are present, force RAG mode
+        if (isCalculationQuery) {
+          modeResult = "RAG";
+        }
+        setMode(modeResult);
+        if (modeResult === "Maps") {
+          // Use existing Maps logic
+          const coords = extractCoordinatesFromText(userInput);
+          const locationMatch = userInput.match(/location\s+([\w\s,.'-]+)/i);
+          if (coords) {
+            const result = await analyzeLocation(coords.lat, coords.lng);
+            const message =
+              (result.analysis || "No analysis available.") +
+              `<br/><a href="#" class="open-on-maps-link" data-lat="${coords.lat}" data-lng="${coords.lng}">Open on Maps</a>`;
+            setMessages((prev) => {
+              const newMsgs = [...prev];
+              newMsgs[newMsgs.length - 1] = {
+                role: "assistant",
+                content: message,
+                isCached: false,
+              };
+              return newMsgs;
+            });
+            return;
+          } else if (locationMatch) {
+            // Handle 'location <name>'
+            const locationName = locationMatch[1].trim();
+            // Geocode the location name using Google Maps Geocoding API
+            const apiKey =
+              process.env.REACT_APP_GOOGLE_MAPS_API_KEY ||
+              "AIzaSyCcxJN30ArOo4yHON6oxSkthLXtT4B_p2o";
+            const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(
+              locationName
+            )}&key=${apiKey}`;
+            const geoResp = await axios.get(geocodeUrl);
+            const geoData = geoResp.data;
+            if (
+              geoData.status === "OK" &&
+              geoData.results &&
+              geoData.results[0]
+            ) {
+              const { lat, lng } = geoData.results[0].geometry.location;
+              // Get Google Maps API response details (e.g., formatted address, place_id, etc.)
+              const mapsInfo = geoData.results[0];
+              // Send both coordinates and mapsInfo to backend for LLM analysis
+              try {
+                const result = await analyzeLocation(
+                  lat,
+                  lng,
+                  1000,
+                  [],
+                  undefined,
+                  mapsInfo
+                );
+                const message =
+                  (result.analysis || "No analysis available.") +
+                  `<br/><a href="#" class="open-on-maps-link" data-lat="${lat}" data-lng="${lng}">Open on Maps</a>`;
+                setMessages((prev) => {
+                  const newMsgs = [...prev];
+                  newMsgs[newMsgs.length - 1] = {
+                    role: "assistant",
+                    content: message,
+                    isCached: false,
+                  };
+                  return newMsgs;
+                });
+              } catch (err) {
+                setMessages((prev) => {
+                  const newMsgs = [...prev];
+                  newMsgs[newMsgs.length - 1] = {
+                    role: "assistant",
+                    content: "Error analyzing location with LLM.",
+                    isCached: false,
+                  };
+                  return newMsgs;
+                });
+              }
+              return;
+            } else {
+              setMessages((prev) => {
+                const newMsgs = [...prev];
+                newMsgs[newMsgs.length - 1] = {
+                  role: "assistant",
+                  content: `Could not find location: ${locationName}`,
+                  isCached: false,
+                };
+                return newMsgs;
+              });
+              return;
+            }
+          } else {
+            // No coordinates or location found: send query to backend for maps analysis
             try {
-              const result = await analyzeLocation(
-                lat,
-                lng,
-                1000,
-                [],
-                undefined,
-                mapsInfo
-              );
-              const message =
-                (result.analysis || "No analysis available.") +
-                `<br/><a href="#" class="open-on-maps-link" data-lat="${lat}" data-lng="${lng}">Open on Maps</a>`;
+              const result = await analyzeMapsQuery(userInput);
+              const message = result.analysis || "No analysis available.";
               setMessages((prev) => {
                 const newMsgs = [...prev];
                 newMsgs[newMsgs.length - 1] = {
@@ -716,73 +857,26 @@ const Chat: React.FC = () => {
                 const newMsgs = [...prev];
                 newMsgs[newMsgs.length - 1] = {
                   role: "assistant",
-                  content: "Error analyzing location with LLM.",
+                  content: "Error analyzing query for maps.",
                   isCached: false,
                 };
                 return newMsgs;
               });
             }
             return;
-          } else {
-            setMessages((prev) => {
-              const newMsgs = [...prev];
-              newMsgs[newMsgs.length - 1] = {
-                role: "assistant",
-                content: `Could not find location: ${locationName}`,
-                isCached: false,
-              };
-              return newMsgs;
-            });
-            return;
           }
+          // If Maps mode is recommended but no coordinates/location found, continue to normal handling
+          // Fallback to normal send message processing
+          // handleSendMessage();
         } else {
-          // No coordinates or location found: send query to backend for maps analysis
-          setMessages((prev) => [
-            ...prev,
-            { role: "user", content: input, isCached: false },
-            {
-              role: "assistant",
-              content: '<div className="spinner2"></div>',
-              isCached: false,
-            },
-          ]);
-          setInput("");
-          try {
-            const result = await analyzeMapsQuery(input);
-            const message = result.analysis || "No analysis available.";
-            setMessages((prev) => {
-              const newMsgs = [...prev];
-              newMsgs[newMsgs.length - 1] = {
-                role: "assistant",
-                content: message,
-                isCached: false,
-              };
-              return newMsgs;
-            });
-          } catch (err) {
-            setMessages((prev) => {
-              const newMsgs = [...prev];
-              newMsgs[newMsgs.length - 1] = {
-                role: "assistant",
-                content: "Error analyzing query for maps.",
-                isCached: false,
-              };
-              return newMsgs;
-            });
-          }
-          return;
+          // RAG mode: fallback to normal send message processing
+          handleSendMessage(userInput, true);
         }
-        // If Maps mode is recommended but no coordinates/location found, continue to normal handling
-        // Fallback to normal send message processing
-        // handleSendMessage();
-      } else {
-        // RAG mode: fallback to normal send message processing
-        handleSendMessage();
+      } catch (error) {
+        // On error, fallback to normal send message processing
+        handleSendMessage(userInput, true);
       }
-    } catch (error) {
-      // On error, fallback to normal send message processing
-      handleSendMessage();
-    }
+    }, 10); // Small timeout to ensure UI updates
   };
 
   return (
@@ -792,10 +886,11 @@ const Chat: React.FC = () => {
         variant="light"
         expand="lg"
         className="sticky-top shadow-sm border-bottom"
+        style={{ padding: 0 }}
       >
         <Container fluid>
           <Navbar.Brand href="#home" className="mr-auto">
-            <img src={Fiseclogo} alt="Fisec QGPT" style={{ height: "50px" }} />
+            <img src={Fiseclogo} alt="Fisec QGPT" style={{ height: "30px" }} />
           </Navbar.Brand>
           <Nav className="ml-auto">
             <Nav.Link href="#" className="text-dark" onClick={handleEmailClick}>
@@ -808,6 +903,7 @@ const Chat: React.FC = () => {
               variant="danger"
               onClick={handleLogout}
               className="ml-3 btn-logout"
+              style={{ height: "fit-content" }}
             >
               Logout
             </Button>
@@ -834,7 +930,9 @@ const Chat: React.FC = () => {
               onChange={(e) => handleModeChange(e.target.value)}
               disabled={messageLoading}
             >
-              <option value="RAG">RAG Mode</option>
+              <option value="RAG" className="dropdown-options">
+                RAG Mode
+              </option>
               <option value="Basic">Basic Chat</option>
               <option value="Search">Search Mode</option>
               <option value="Summarize">Summarize</option>
@@ -910,7 +1008,7 @@ const Chat: React.FC = () => {
                     onClick={handleOpenMapsModal}
                     title="Analyze Location with Google Maps"
                   >
-                    <FiMap
+                    <FaMapMarkedAlt
                       style={{
                         width: "20px",
                         height: "20px",
@@ -1017,30 +1115,24 @@ const Chat: React.FC = () => {
           />
         </div>
 
-        {/* Center Panel */}
+        {/* Center Panel - Modern Layout */}
         <div
           id="center-panel"
           className={`center-panel ${
             !sidebarLeftHidden && !sidebarRightHidden
               ? "full-width"
               : !sidebarLeftHidden || !sidebarRightHidden
-              ? "expended"
+              ? "expanded"
               : ""
           }`}
         >
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              width: "100%",
-            }}
-          >
-            <div style={{ textAlign: "left" }}>
+          {/* Modern Chat Header */}
+          <div className="chat-header">
+            <div className="chat-header-left">
               <button
-                id="sidebarLeft-toggle"
                 className="toggle-btn"
                 onClick={toggleSidebarLeft}
+                title="Toggle Left Panel"
               >
                 {sidebarLeftHidden ? (
                   <FiArrowRight size={16} />
@@ -1049,11 +1141,33 @@ const Chat: React.FC = () => {
                 )}
               </button>
             </div>
-            <div style={{ textAlign: "right" }}>
+
+            <div className="chat-header-center">
+              <div className="settings-info">
+                <span title="LLM Model">
+                  <FiMonitor size={14} />
+                  {qgptSettings.llmModel}
+                </span>
+                <span title="Response Size">
+                  <FiMaximize size={14} />
+                  {qgptSettings.size}
+                </span>
+              </div>
+            </div>
+
+            <div className="chat-header-right">
               <button
-                id="sidebarRight-toggle"
+                className="settings-btn"
+                onClick={() => setShowSettings(true)}
+                title="Settings"
+              >
+                <FiSettings size={16} />
+              </button>
+
+              <button
                 className="toggle-btn"
                 onClick={toggleSidebarRight}
+                title="Toggle Right Panel"
               >
                 {sidebarRightHidden ? (
                   <FiArrowLeft size={16} />
@@ -1062,37 +1176,6 @@ const Chat: React.FC = () => {
                 )}
               </button>
             </div>
-          </div>
-          <div
-            className="logo"
-            style={{ display: "flex", alignItems: "center", gap: "1rem" }}
-          >
-            <span title="LLM Model">
-              <FiMonitor style={{ marginRight: "4px" }} /> :{" "}
-              {qgptSettings.llmModel}
-            </span>{" "}
-            |
-            <span title="Embedding Model">
-              <FiMonitor style={{ marginRight: "4px" }} /> :{" "}
-              {qgptSettings.embeddingModel}
-            </span>{" "}
-            |
-            <span title="Set Temperature">
-              <FiThermometer style={{ marginRight: "4px" }} /> :{" "}
-              {qgptSettings.temperature}
-            </span>{" "}
-            |
-            <span title="Response size">
-              <FiMaximize style={{ marginRight: "4px" }} /> :{" "}
-              {qgptSettings.size}
-            </span>
-            <button
-              title="QGPT Settings"
-              className="btn secondary settings-btn"
-              onClick={() => setShowSettings(true)}
-            >
-              <FiSettings size={18} />
-            </button>
           </div>
           <div className="chat-box">
             {messages.length === 0 ? (
@@ -1158,8 +1241,31 @@ const Chat: React.FC = () => {
                 <FiArrowDownCircle size={16} />
               </button>
             )}
-            {/* Chat Input Section */}{" "}
+            {/* Chat Input Section */}
             <div className="chat-query-input">
+              {/* Compact Tone Analyzer */}
+              {/* <div className="tone-selector-wrapper">
+                <div className="tone-selector">
+                  <label htmlFor="toneSelect" className="tone-label">
+                    <FiEdit size={14} />
+                    <span>Tone:</span>
+                  </label>
+                  <select
+                    id="toneSelect"
+                    value={selectedTone}
+                    onChange={(e) => setSelectedTone(e.target.value)}
+                    className="tone-dropdown"
+                  >
+                    <option value="">Default</option>
+                    {totalPrompts.map((prompt, index) => (
+                      <option key={index} value={prompt.content}>
+                        {prompt.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div> */}
+
               {/* Hidden file input for regular file uploads */}
               <input
                 type="file"
@@ -1175,77 +1281,100 @@ const Chat: React.FC = () => {
                 ref={imageInputRef}
                 onChange={onFileChange}
               />
-              <div className="input-container">
-                <textarea
-                  id="chatInput"
-                  placeholder="Type a message..."
-                  rows={1}
-                  value={input}
-                  disabled={!currentChatId}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && !e.shiftKey) {
-                      e.preventDefault();
-                      handleSendMessageWithMaps();
+              <div className="chat-input-wrapper">
+                <div className="chat-input-container">
+                  <textarea
+                    id="chatInput"
+                    placeholder={
+                      currentChatId
+                        ? "Type a message..."
+                        : "Type a message to start a new chat..."
                     }
-                  }}
-                  style={{
-                    overflowY: "scroll",
-                    height: "80px",
-                    scrollbarWidth: "none",
-                  }}
-                ></textarea>{" "}
-                {/* Image Upload Button */}
-                <button
-                  className="image-upload-btn"
-                  title="Upload Image"
-                  onClick={() => imageInputRef.current?.click()}
-                  type="button"
-                >
-                  <FiImage size={18} />
-                </button>
-                {/* Mic Button for Speech-to-Text */}
-                <button
-                  className="mic-btn"
-                  title="Start voice input"
-                  onClick={toggleListening}
-                >
-                  {isListening ? <FiMicOff size={18} /> : <FiMic size={18} />}
-                </button>
-                <button
-                  className="chat-send-btn"
-                  onClick={() =>
-                    messageLoading
-                      ? handleStopMessage()
-                      : handleSendMessageWithMaps()
-                  }
-                >
-                  {messageLoading ? "■" : "↑"}
-                </button>
-              </div>
-              <div className="buttons primary">
-                {" "}
-                <button
-                  className="btn primary retry"
-                  onClick={handleRetry}
-                  disabled={messageLoading}
-                >
-                  Retry
-                </button>{" "}
-                <button
-                  className="btn primary"
-                  onClick={handleUndo}
-                  disabled={messageLoading}
-                >
-                  Undo
-                </button>
-                <button
-                  className="btn primary clear"
-                  onClick={handleClearChat}
-                  disabled={messageLoading}
-                >
-                  Clear
-                </button>
+                    rows={1}
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !e.shiftKey) {
+                        e.preventDefault();
+                        console.log("Enter pressed", {
+                          currentChatId,
+                          input: input.trim(),
+                          messageLoading,
+                        });
+                        if (input.trim() && !messageLoading) {
+                          // If no chat is selected, create a new one first
+                          if (!currentChatId) {
+                            handleNewChat()
+                              .then(() => {
+                                // Use setTimeout to ensure state has updated
+                                setTimeout(() => {
+                                  handleSendMessageWithMaps().catch(
+                                    console.error
+                                  );
+                                }, 50);
+                              })
+                              .catch(console.error);
+                          } else {
+                            console.log("Sending message...");
+                            handleSendMessageWithMaps().catch(console.error);
+                          }
+                        } else {
+                          console.log("Message not sent - conditions not met");
+                        }
+                      }
+                    }}
+                    className="chat-input-textarea"
+                  ></textarea>
+                  <div className="chat-input-buttons">
+                    {/* Image Upload Button */}
+                    <button
+                      className="input-action-btn image-upload-btn"
+                      title="Upload Image"
+                      onClick={() => imageInputRef.current?.click()}
+                      type="button"
+                    >
+                      <FiImage size={18} />
+                    </button>
+                    {/* Mic Button for Speech-to-Text */}
+                    <button
+                      className="input-action-btn mic-btn"
+                      title="Start voice input"
+                      onClick={toggleListening}
+                    >
+                      {isListening ? (
+                        <FiMicOff size={18} />
+                      ) : (
+                        <FiMic size={18} />
+                      )}
+                    </button>
+                    <button
+                      className="input-action-btn chat-send-btn"
+                      onClick={() => {
+                        if (messageLoading) {
+                          handleStopMessage();
+                        } else if (input.trim()) {
+                          // If no chat is selected, create a new one first
+                          if (!currentChatId) {
+                            handleNewChat()
+                              .then(() => {
+                                // Use setTimeout to ensure state has updated
+                                setTimeout(() => {
+                                  handleSendMessageWithMaps().catch(
+                                    console.error
+                                  );
+                                }, 50);
+                              })
+                              .catch(console.error);
+                          } else {
+                            handleSendMessageWithMaps().catch(console.error);
+                          }
+                        }
+                      }}
+                    >
+                      {messageLoading ? "■" : "↑"}
+                    </button>
+                  </div>
+                </div>
               </div>
               <div className="input-container">
                 <div className="expandable-wrapper">
@@ -1269,16 +1398,108 @@ const Chat: React.FC = () => {
             </div>
           </div>
         </div>
-        {/* Right Panel */}
+        {/* Right Panel - Chat Management & Quick Actions */}
         <div
           className={`right-panel ${sidebarRightHidden ? "hidden" : ""}`}
           id="right-panel"
         >
+          {/* Chat Actions Section */}
+          <div className="section">
+            <div className="d-flex align-items-center justify-content-between mb-3">
+              <label className="mb-0">
+                <strong>Chat Actions</strong>
+              </label>
+            </div>
+            <div className="chat-actions-grid">
+              <Button
+                variant="outline-primary"
+                size="sm"
+                className="action-btn"
+                onClick={() => handleNewChat().catch(console.error)}
+                title="Start New Chat"
+              >
+                <FiPlus size={10} />
+                <span>New</span>
+              </Button>
+              <Button
+                variant="outline-secondary"
+                size="sm"
+                className="action-btn"
+                onClick={handleClearChat}
+                disabled={messageLoading}
+                title="Clear Current Chat"
+              >
+                <FiTrash2 size={10} />
+                <span>Clear</span>
+              </Button>
+              <Button
+                variant="outline-info"
+                size="sm"
+                className="action-btn"
+                onClick={handleRetry}
+                disabled={messageLoading}
+                title="Retry Last Message"
+              >
+                <FiArrowLeft size={10} />
+                <span>Retry</span>
+              </Button>
+              <Button
+                variant="outline-warning"
+                size="sm"
+                className="action-btn"
+                onClick={handleUndo}
+                disabled={messageLoading}
+                title="Undo Last Message"
+              >
+                <FiArrowLeft size={10} />
+                <span>Undo</span>
+              </Button>
+            </div>
+          </div>
+
+          {/* Temperature Control Section */}
+          <div className="section">
+            <div className="d-flex align-items-center justify-content-between mb-3">
+              <label className="mb-0">
+                <strong>Temperature Control</strong>
+              </label>
+            </div>
+            <div className="temperature-control">
+              <div className="d-flex align-items-center gap-2 mb-2">
+                <FiThermometer size={12} />
+                <span
+                  className="temperature-label"
+                  title={`Current temperature: ${qgptSettings.temperature}`}
+                >
+                  Temp: {qgptSettings.temperature}
+                </span>
+              </div>
+              <input
+                type="range"
+                min="0"
+                max="2"
+                step="0.1"
+                value={qgptSettings.temperature}
+                onChange={(e) => {
+                  const newTemp = parseFloat(e.target.value);
+                  setQGPTSettings({ ...qgptSettings, temperature: newTemp });
+                }}
+                className="temperature-slider"
+                title={`Temperature: ${qgptSettings.temperature}`}
+              />
+              <div className="d-flex justify-content-between text-muted small">
+                <span>Conservative</span>
+                <span>Creative</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Tone Templates Section */}
           <PromptPanel
             prompts={prompts}
             folders={folders}
             totalPrompts={totalPrompts}
-            setTotalPrompts={setTotalPrompts} // Added this
+            setTotalPrompts={setTotalPrompts}
             addFolder={addFolder}
             addPrompt={addPrompt}
             addPromptToFolder={addPromptToFolder}
@@ -1291,20 +1512,11 @@ const Chat: React.FC = () => {
       </div>
 
       <div className="footer">
-        <div className="footer-everi-logo">
-          {/* <img
-            src={Picture1}
-            alt="PrivateGPT"
-            style={{ height: "70px", marginRight: "15px" }}
-          /> */}
-          <p className="footer-logo-text">
-            QDL <br />
-            QDL Core Services
-            <br />
-          </p>
+        <div className="footer-logo">
+          <p className="footer-logo-text">Quantum Data Leap GPT</p>
         </div>
-        <a className="footer-zylon-link" href="https://www.fisecglobal.net">
-          Made at QuantumData Leap
+        <a className="footer-link" href="https://www.fisecglobal.net">
+          Powered by Quantum Data Leap
         </a>
       </div>
 

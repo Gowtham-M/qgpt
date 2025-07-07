@@ -230,34 +230,38 @@ const PromptPanel: React.FC<PromptPanelProps> = ({
   return (
     <DragDropContext onDragEnd={onDragEnd}>
       <div className="section">
-        <label>
-          <strong>Tone Analyzer</strong>
-        </label>
-        <div
-          className="border-0 rounded"
-          style={{ height: "320px", overflowY: "auto", scrollbarWidth: "thin" }}
-        >
-          <div className="d-flex gap-2 mb-3">
+        <div className="d-flex align-items-center justify-content-between mb-3">
+          <label className="mb-0">
+            <strong>Tone Templates</strong>
+          </label>
+          <div className="d-flex gap-2">
             <Button
-              variant="secondary"
-              style={{ fontSize: "13px", padding: "6px 6px" }}
+              variant="outline-secondary"
+              size="sm"
               onClick={() => setShowFolderModal(true)}
+              title="Add Folder"
             >
-              <FiFolder /> <FiPlus />
+              <FiFolder size={12} />
             </Button>
             <Button
-              variant="primary"
-              style={{ fontSize: "13px", padding: "6px 6px" }}
+              variant="outline-primary"
+              size="sm"
               onClick={() => {
-                // Reset the current prompt before opening the modal
                 setCurrentPrompt(null);
-                setIsEditing(false); // Ensure it's not in edit mode
-                setShowModal(true); // Open the modal
+                setIsEditing(false);
+                setShowModal(true);
               }}
+              title="Add New Tone"
             >
-              New Tone <FiPlus />
+              <FiPlus size={12} />
             </Button>
           </div>
+        </div>
+
+        <div
+          className="border-0 rounded"
+          style={{ height: "200px", overflowY: "auto", scrollbarWidth: "thin" }}
+        >
           <Droppable droppableId="root">
             {(provided) => (
               <div
@@ -350,7 +354,7 @@ const PromptPanel: React.FC<PromptPanelProps> = ({
                           openPromptModal(undefined, folder.id); // Open the modal for the new prompt in the folder
                         }}
                       >
-                        <FiPlus /> New Tone
+                        <FiPlus /> New Template
                       </Button>
 
                       {folder.prompts.map((prompt, index) => (
@@ -396,7 +400,9 @@ const PromptPanel: React.FC<PromptPanelProps> = ({
       {/* Prompt Edit/Add Modal */}
       <Modal show={showModal} onHide={() => setShowModal(false)}>
         <Modal.Header closeButton>
-          <Modal.Title>{isEditing ? "Edit Tone" : "Add Tone"}</Modal.Title>
+          <Modal.Title>
+            {isEditing ? "Edit Template" : "Add Template"}
+          </Modal.Title>
         </Modal.Header>
         <Modal.Body>
           <Form.Group className="mb-2">
@@ -426,7 +432,7 @@ const PromptPanel: React.FC<PromptPanelProps> = ({
             />
           </Form.Group>
           <Form.Group>
-            <Form.Label>Prompt</Form.Label>
+            <Form.Label>Template Content</Form.Label>
             <Form.Control
               as="textarea"
               rows={3}
@@ -476,25 +482,6 @@ const PromptPanel: React.FC<PromptPanelProps> = ({
           </Button>
         </Modal.Footer>
       </Modal>
-      <div className="section">
-        <div className="header">
-          <strong>QGPT Agentic Bot</strong>
-        </div>
-        <div className="subSection">
-          <div className="try1" style={{ gap: "10px" }}>
-            <img src={imgMetaAgent} alt="icon" width="20" height="20" />
-            <strong>&nbsp;&nbsp;Meta Agent</strong>
-            <span className="bottom-right-text">Coming soon...</span>
-          </div>
-        </div>
-        <div className="subSection">
-          <div className="try1" style={{ gap: "10px" }}>
-            <img src={imgToolCalling} alt="icon" width="20" height="20" />
-            <strong>&nbsp;&nbsp;Tool Calling</strong>
-            <span className="bottom-right-text">Coming soon...</span>
-          </div>
-        </div>
-      </div>
     </DragDropContext>
   );
 };

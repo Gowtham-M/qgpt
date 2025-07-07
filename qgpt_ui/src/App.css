@@ -1,11 +1,14 @@
 .App {
   text-align: center;
-
+  font-family: 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  min-height: 100vh;
 }
 
 .App-logo {
   height: 40vmin;
   pointer-events: none;
+  filter: drop-shadow(0 0 20px rgba(255, 255, 255, 0.3));
 }
 
 @media (prefers-reduced-motion: no-preference) {
@@ -15,7 +18,7 @@
 }
 
 .App-header {
-  background-color: #282c34;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   min-height: 100vh;
   display: flex;
   flex-direction: column;
@@ -23,10 +26,17 @@
   justify-content: center;
   font-size: calc(10px + 2vmin);
   color: white;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
 .App-link {
   color: #61dafb;
+  transition: all 0.3s ease;
+}
+
+.App-link:hover {
+  color: #21a9c7;
+  text-decoration: none;
 }
 
 @keyframes App-logo-spin {
@@ -36,4 +46,17 @@
   to {
     transform: rotate(360deg);
   }
+}
+
+/* Global enhancements */
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  min-height: 100vh;
 }

@@ -154,7 +154,7 @@ export const uploadAndAnalyzeImage = async (file: File) => {
 export const uploadFile = async (file: File) => {
   const existingFiles = await fetchFiles();
   const duplicateFiles = existingFiles.filter(
-    (existingFile) => existingFile.file_name === file.name
+    (existingFile: any) => existingFile.file_name === file.name
   );
 
   if (duplicateFiles.length > 0) {
@@ -408,7 +408,7 @@ export const useChatHandlers = () => {
   const [fileToUpload, setFileToUpload] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Sidebar toggle state
+  // Sidebar toggle state - both sidebars expanded by default
   const [sidebarLeftHidden, setSidebarLeftHidden] = useState(false);
   const [sidebarRightHidden, setSidebarRightHidden] = useState(false);
 
@@ -459,7 +459,7 @@ export const useChatHandlers = () => {
     messageCancelTokenRef.current = axios.CancelToken.source();
 
     const fileIDsToUse =
-      selectedFiles.length === 0 ? files.map((file) => file.doc_id) : selectedFiles;
+      selectedFiles.length === 0 ? files.map((file:any) => file.doc_id) : selectedFiles;
 
     // Preserve only the last 20 messages as context, excluding the retried query if needed
     const fullHistory: ChatMessage[] = [...messages, { role: "user", content: userQuery }];

@@ -1,7 +1,8 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Button, Form, Card, Col, Row } from "react-bootstrap";
-import "bootstrap/dist/css/bootstrap.min.css"; // Ensure Bootstrap is imported
+import { Button, Form, Card, Col, Row, Container } from "react-bootstrap";
+import "bootstrap/dist/css/bootstrap.min.css";
+import "./Login.css"; // We'll create this file
 
 const Login: React.FC = () => {
   const [email, setEmail] = useState("");
@@ -11,71 +12,119 @@ const Login: React.FC = () => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     localStorage.setItem("userEmail", email);
-    // Redirect to the chat page with email passed as state
     navigate("/chat", { state: { email } });
   };
 
   return (
-    <div
-      className="container d-flex justify-content-center align-items-center"
-      style={{ height: "100vh" }}
-    >
-      <Row className="w-100 d-flex justify-content-center">
-        {/* Outer Welcome Card */}
-        <Col xs={12} className="mb-4">
-          <Card
-            className="shadow-lg border-0 rounded-4"
-            style={{ backgroundColor: "#f0f8ff", padding: "2rem" }}
-          >
-            <Card.Body className="text-center">
-              <Card.Title className="display-3 text-primary">
+    <div className="login-page">
+      <Container fluid className="login-container">
+        <Row className="align-items-center justify-content-center">
+          <Col xs={12} md={10} lg={8} xl={6}>
+            {/* Welcome Header */}
+            <div className="welcome-header text-center mb-3">
+              <div className="logo-container mb-2">
+                <div className="logo-circle">
+                  <svg width="60" height="60" viewBox="0 0 60 60" fill="none">
+                    <circle cx="30" cy="30" r="25" fill="url(#gradient)" />
+                    <path
+                      d="M20 25L25 30L40 20"
+                      stroke="white"
+                      strokeWidth="3"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                    <defs>
+                      <linearGradient
+                        id="gradient"
+                        x1="0%"
+                        y1="0%"
+                        x2="100%"
+                        y2="100%"
+                      >
+                        <stop offset="0%" stopColor="#667eea" />
+                        <stop offset="100%" stopColor="#764ba2" />
+                      </linearGradient>
+                    </defs>
+                  </svg>
+                </div>
+              </div>
+              <h1 className="welcome-title">
                 Welcome to Quantum Data Leap GPT
-              </Card.Title>
-              <Card.Text className="lead mb-4">
-                Your personal AI assistant, ready to help you at any time. Log
-                in below to get started!
-              </Card.Text>
-            </Card.Body>
-          </Card>
-        </Col>
+              </h1>
+              <p className="welcome-subtitle">
+                Your intelligent AI assistant for data analysis, insights, and
+                more.
+                <br />
+                Sign in to unlock the power of quantum-enhanced conversations.
+              </p>
+            </div>
 
-        {/* Inner Login Form Card */}
-        <Col xs={12} md={4} className="d-flex justify-content-center">
-          <Card
-            className="shadow-lg border-0 rounded-4 p-4"
-            style={{ maxWidth: "400px", width: "100%" }}
-          >
-            <h3 className="text-center mb-4">Login</h3>
-            <Form onSubmit={handleSubmit}>
-              <Form.Group className="mb-3" controlId="formEmail">
-                <Form.Label>Email</Form.Label>
-                <Form.Control
-                  type="email"
-                  placeholder="Enter  email"
-                  value={email}
-                  required
-                  onChange={(e) => setEmail(e.target.value)}
-                />
-              </Form.Group>
+            {/* Login Form */}
+            <Card className="login-card">
+              <Card.Body className="p-5">
+                <div className="text-center mb-4">
+                  <h3 className="login-title">Sign In</h3>
+                  <p className="login-subtitle">Access your AI assistant</p>
+                </div>
 
-              <Form.Group className="mb-3" controlId="formPassword">
-                <Form.Label>Password</Form.Label>
-                <Form.Control
-                  type="password"
-                  placeholder="Password"
-                  value={password}
-                  required
-                  onChange={(e) => setPassword(e.target.value)}
-                />
-              </Form.Group>
+                <Form onSubmit={handleSubmit}>
+                  <Form.Group className="mb-4">
+                    <Form.Label className="form-label">
+                      Email Address
+                    </Form.Label>
+                    <Form.Control
+                      type="email"
+                      placeholder="Enter your email"
+                      value={email}
+                      required
+                      onChange={(e) => setEmail(e.target.value)}
+                      className="form-input"
+                    />
+                  </Form.Group>
 
-              <Button variant="primary" type="submit" className="w-100 mt-4">
-                Login
-              </Button>
-            </Form>
-          </Card>
-        </Col>
-      </Row>
+                  <Form.Group className="mb-4">
+                    <Form.Label className="form-label">Password</Form.Label>
+                    <Form.Control
+                      type="password"
+                      placeholder="Enter your password"
+                      value={password}
+                      required
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="form-input"
+                    />
+                  </Form.Group>
+
+                  <Button type="submit" className="login-button w-100">
+                    <span>Sign In</span>
+                    <svg
+                      width="20"
+                      height="20"
+                      viewBox="0 0 20 20"
+                      fill="none"
+                      className="ms-2"
+                    >
+                      <path
+                        d="M4 10h12m-6-6l6 6-6 6"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                  </Button>
+                </Form>
+              </Card.Body>
+            </Card>
+
+            {/* Footer */}
+            <div className="login-footer text-center mt-2">
+              <p className="footer-text">
+                Powered by <strong>Quantum Data Leap</strong> Technology
+              </p>
+            </div>
+          </Col>
+        </Row>
+      </Container>
     </div>
   );
 };
