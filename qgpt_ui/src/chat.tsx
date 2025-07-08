@@ -723,259 +723,161 @@ const Chat: React.FC = () => {
     // Store the user input to display immediately
     const userInput = input.trim();
 
-    // LOG: User message about to be added (send button or Enter)
-    console.log("[QGPT-UI] [UserMsg] Adding user message to chat", {
-      userInput,
-      currentChatId,
-      messagesCount: messages.length,
-    });
-
-    // Use Ollama to classify the query (with shorter timeout)
-    let modeResult = "RAG";
-    let isCalculationQuery = false;
-    try {
-      const calculationKeywords = [
-        "cost",
-        "price",
-        "per sq m",
-        "per sqm",
-        "per square meter",
-        "per square metre",
-        "area",
-        "total cost",
-        "calculate",
-        "calculation",
-        "% of this area",
-        "percent of this area",
-        "sq m",
-        "sqm",
-      ];
-      isCalculationQuery = calculationKeywords.some((kw) =>
-        userInput.toLowerCase().includes(kw)
-      );
-      const classifyResult = await Promise.race([
-        ollamaClassifyQuery(userInput),
-        new Promise((_, reject) =>
-          setTimeout(() => reject(new Error("Timeout")), 2000)
-        ),
-      ]).catch(() => ({ mode: "rag" }));
-      modeResult = (classifyResult as any).mode === "maps" ? "Maps" : "RAG";
-      if (isCalculationQuery) modeResult = "RAG";
-    } catch (e) {
-      modeResult = "RAG";
+    // --- COORDINATE-ONLY DETECTION: force Maps mode if coordinates detected ---
+    let coords = extractCoordinatesFromText(userInput);
+    if (!coords) {
+      // Matches: 17.385044, 78.486671 or 17.385044 78.486671 (with optional whitespace)
+      const coordRegex = /([-+]?\d{1,2}\.\d+)[,\s]+([-+]?\d{1,3}\.\d+)/;
+      const match = userInput.match(coordRegex);
+      if (match) {
+        coords = { lat: parseFloat(match[1]), lng: parseFloat(match[2]) };
+      }
     }
-    setMode(modeResult);
-
-    // Only add the user message if handling Maps logic directly, otherwise let handleSendMessage do it
-    if (modeResult === "Maps") {
-      setMessages((prev) => {
-        const newMsgs = [
-          ...prev,
-          { role: "user", content: userInput, isCached: false },
-        ];
-        console.log("[QGPT-UI] [UserMsg] setMessages called (user)", {
-          newMsgs,
-        });
-        setTimeout(() => {
-          console.log("[QGPT-UI] [UserMsg] messages state after user message", {
-            messages: newMsgs,
-          });
-        }, 0);
-        return newMsgs;
-      });
+    if (coords) {
+      setMode("Maps");
+      setMessages((prev) => [
+        ...prev,
+        { role: "user", content: userInput, isCached: false },
+        { role: "assistant", content: '<div className="spinner2"></div>', isCached: false },
+      ]);
       setInput("");
       setTimeout(async () => {
-        setMessages((prev) => {
-          const lastMsg = prev[prev.length - 1];
-          if (
-            lastMsg?.role === "assistant" &&
-            lastMsg?.content.includes("spinner2")
-          ) {
-            return prev;
-          }
-          const newMsgs = [
-            ...prev,
-            {
-              role: "assistant",
-              content: '<div className="spinner2"></div>',
-              isCached: false,
-            },
-          ];
-          console.log("[QGPT-UI] [AssistantMsg] setMessages called (spinner)", {
-            newMsgs,
+        const result = await analyzeLocation(coords.lat, coords.lng);
+        let message = (result.analysis || "No analysis available.") +
+          `<br/><a href="https://www.google.com/maps/search/?api=1&query=${coords.lat},${coords.lng}" target="_blank" rel="noopener noreferrer">Open on Maps</a>`;
+        if (result.nearest_transit && Array.isArray(result.nearest_transit)) {
+          message += `<br/><b>Nearest Transit Locations:</b><ul>`;
+          result.nearest_transit.forEach((loc: any) => {
+            const gmapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${coords.lat},${coords.lng}&destination=${loc.lat},${loc.lng}`;
+            let dist = loc.distance_km ? `${loc.distance_km.toFixed(1)} km` : "N/A";
+            let duration = loc.duration_text ? `, ${loc.duration_text}` : "";
+            message += `<li>${loc.type ? loc.type.charAt(0).toUpperCase() + loc.type.slice(1) : loc.name}: <a href="${gmapsUrl}" target="_blank">Directions</a> (${dist}${duration})</li>`;
           });
-          setTimeout(() => {
-            console.log(
-              "[QGPT-UI] [AssistantMsg] messages state after spinner",
-              { messages: newMsgs }
-            );
-          }, 0);
+          message += `</ul>`;
+        }
+        setMessages((prev) => {
+          const newMsgs = [...prev];
+          newMsgs[newMsgs.length - 1] = {
+            role: "assistant",
+            content: message,
+            isCached: false,
+          };
           return newMsgs;
         });
+      }, 10);
+      return;
+    }
+    // --- END COORDINATE-ONLY DETECTION ---
+
+    // Now check for locationMatch only if coords not found
+    const locationMatch = userInput.match(/location\s+([\w\s,.'-]+)/i);
+    if (locationMatch) {
+      const locationName = locationMatch[1].trim();
+      const apiKey =
+        process.env.REACT_APP_GOOGLE_MAPS_API_KEY ||
+        "AIzaSyCcxJN30ArOo4yHON6oxSkthLXtT4B_p2o";
+      const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(
+        locationName
+      )}&key=${apiKey}`;
+      const geoResp = await axios.get(geocodeUrl);
+      const geoData = geoResp.data;
+      if (
+        geoData.status === "OK" &&
+        geoData.results &&
+        geoData.results[0]
+      ) {
+        const { lat, lng } = geoData.results[0].geometry.location;
+        const mapsInfo = geoData.results[0];
         try {
-          let coords = extractCoordinatesFromText(userInput);
-          // Fallback: regex for coordinates if extractCoordinatesFromText fails
-          if (!coords) {
-            // Matches: 17.385044, 78.486671 or 17.385044 78.486671 (with optional whitespace)
-            const coordRegex = /([-+]?\d{1,2}\.\d+)[,\s]+([-+]?\d{1,3}\.\d+)/;
-            const match = userInput.match(coordRegex);
-            if (match) {
-              coords = { lat: parseFloat(match[1]), lng: parseFloat(match[2]) };
-            }
-          }
-          if (coords) {
-            const result = await analyzeLocation(coords.lat, coords.lng);
-            let message = (result.analysis || "No analysis available.") +
-              `<br/><a href="https://www.google.com/maps/search/?api=1&query=${coords.lat},${coords.lng}" target="_blank" rel="noopener noreferrer">Open on Maps</a>`;
-            // If nearest_transit is present, add transit info
-            if (result.nearest_transit && Array.isArray(result.nearest_transit)) {
-              message += `<br/><b>Nearest Transit Locations:</b><ul>`;
-              result.nearest_transit.forEach((loc: any) => {
-                const gmapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${coords.lat},${coords.lng}&destination=${loc.lat},${loc.lng}`;
-                let dist = loc.distance_km ? `${loc.distance_km.toFixed(1)} km` : "N/A";
-                let duration = loc.duration_text ? `, ${loc.duration_text}` : "";
-                message += `<li>${loc.type ? loc.type.charAt(0).toUpperCase() + loc.type.slice(1) : loc.name}: <a href="${gmapsUrl}" target="_blank">Directions</a> (${dist}${duration})</li>`;
-              });
-              message += `</ul>`;
-            }
-            setMessages((prev) => {
-              const newMsgs = [...prev];
-              newMsgs[newMsgs.length - 1] = {
-                role: "assistant",
-                content: message,
-                isCached: false,
-              };
-              return newMsgs;
-            });
-            return;
-          } else if (locationMatch) {
-            const locationName = locationMatch[1].trim();
-            const apiKey =
-              process.env.REACT_APP_GOOGLE_MAPS_API_KEY ||
-              "AIzaSyCcxJN30ArOo4yHON6oxSkthLXtT4B_p2o";
-            const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(
-              locationName
-            )}&key=${apiKey}`;
-            const geoResp = await axios.get(geocodeUrl);
-            const geoData = geoResp.data;
-            if (
-              geoData.status === "OK" &&
-              geoData.results &&
-              geoData.results[0]
-            ) {
-              const { lat, lng } = geoData.results[0].geometry.location;
-              const mapsInfo = geoData.results[0];
-              try {
-                const result = await analyzeLocation(
-                  lat,
-                  lng,
-                  1000,
-                  [],
-                  undefined,
-                  mapsInfo
-                );
-                const message =
-                  (result.analysis || "No analysis available.") +
-                  `<br/><a href="#" class="open-on-maps-link" data-lat="${lat}" data-lng="${lng}">Open on Maps</a>`;
-                setMessages((prev) => {
-                  const newMsgs = [...prev];
-                  newMsgs[newMsgs.length - 1] = {
-                    role: "assistant",
-                    content: message,
-                    isCached: false,
-                  };
-                  console.log(
-                    "[QGPT-UI] [AssistantMsg] setMessages called (geocode)",
-                    { newMsgs }
-                  );
-                  return newMsgs;
-                });
-              } catch (err) {
-                setMessages((prev) => {
-                  const newMsgs = [...prev];
-                  newMsgs[newMsgs.length - 1] = {
-                    role: "assistant",
-                    content: "Error analyzing location with LLM.",
-                    isCached: false,
-                  };
-                  console.log(
-                    "[QGPT-UI] [AssistantMsg] setMessages called (geocode error)",
-                    { newMsgs }
-                  );
-                  return newMsgs;
-                });
-              }
-              return;
-            } else {
-              setMessages((prev) => {
-                const newMsgs = [...prev];
-                newMsgs[newMsgs.length - 1] = {
-                  role: "assistant",
-                  content: `Could not find location: ${locationName}`,
-                  isCached: false,
-                };
-                console.log(
-                  "[QGPT-UI] [AssistantMsg] setMessages called (location not found)",
-                  { newMsgs }
-                );
-                return newMsgs;
-              });
-              return;
-            }
-          } else {
-            try {
-              const result = await analyzeMapsQuery(userInput);
-              const message = result.analysis || "No analysis available.";
-              setMessages((prev) => {
-                const newMsgs = [...prev];
-                newMsgs[newMsgs.length - 1] = {
-                  role: "assistant",
-                  content: message,
-                  isCached: false,
-                };
-                console.log(
-                  "[QGPT-UI] [AssistantMsg] setMessages called (maps query)",
-                  { newMsgs }
-                );
-                return newMsgs;
-              });
-            } catch (err) {
-              setMessages((prev) => {
-                const newMsgs = [...prev];
-                newMsgs[newMsgs.length - 1] = {
-                  role: "assistant",
-                  content: "Error analyzing query for maps.",
-                  isCached: false,
-                };
-                console.log(
-                  "[QGPT-UI] [AssistantMsg] setMessages called (maps query error)",
-                  { newMsgs }
-                );
-                return newMsgs;
-              });
-            }
-            return;
-          }
-        } catch (error) {
+          const result = await analyzeLocation(
+            lat,
+            lng,
+            1000,
+            [],
+            undefined,
+            mapsInfo
+          );
+          const message =
+            (result.analysis || "No analysis available.") +
+            `<br/><a href="#" class="open-on-maps-link" data-lat="${lat}" data-lng="${lng}">Open on Maps</a>`;
           setMessages((prev) => {
             const newMsgs = [...prev];
             newMsgs[newMsgs.length - 1] = {
               role: "assistant",
-              content: "Error processing maps query.",
+              content: message,
               isCached: false,
             };
             console.log(
-              "[QGPT-UI] [AssistantMsg] setMessages called (maps error)",
+              "[QGPT-UI] [AssistantMsg] setMessages called (geocode)",
+              { newMsgs }
+            );
+            return newMsgs;
+          });
+        } catch (err) {
+          setMessages((prev) => {
+            const newMsgs = [...prev];
+            newMsgs[newMsgs.length - 1] = {
+              role: "assistant",
+              content: "Error analyzing location with LLM.",
+              isCached: false,
+            };
+            console.log(
+              "[QGPT-UI] [AssistantMsg] setMessages called (geocode error)",
               { newMsgs }
             );
             return newMsgs;
           });
         }
-      }, 10);
+        return;
+      } else {
+        setMessages((prev) => {
+          const newMsgs = [...prev];
+          newMsgs[newMsgs.length - 1] = {
+            role: "assistant",
+            content: `Could not find location: ${locationName}`,
+            isCached: false,
+          };
+          console.log(
+            "[QGPT-UI] [AssistantMsg] setMessages called (location not found)",
+            { newMsgs }
+          );
+          return newMsgs;
+        });
+        return;
+      }
     } else {
-      // RAG or fallback: let handleSendMessage add the user message
-      setInput("");
-      handleSendMessage(userInput);
+      try {
+        const result = await analyzeMapsQuery(userInput);
+        const message = result.analysis || "No analysis available.";
+        setMessages((prev) => {
+          const newMsgs = [...prev];
+          newMsgs[newMsgs.length - 1] = {
+            role: "assistant",
+            content: message,
+            isCached: false,
+          };
+          console.log(
+            "[QGPT-UI] [AssistantMsg] setMessages called (maps query)",
+            { newMsgs }
+          );
+          return newMsgs;
+        });
+      } catch (err) {
+        setMessages((prev) => {
+          const newMsgs = [...prev];
+          newMsgs[newMsgs.length - 1] = {
+            role: "assistant",
+            content: "Error analyzing query for maps.",
+            isCached: false,
+          };
+          console.log(
+            "[QGPT-UI] [AssistantMsg] setMessages called (maps query error)",
+            { newMsgs }
+          );
+          return newMsgs;
+        });
+      }
+      return;
     }
   };
 
