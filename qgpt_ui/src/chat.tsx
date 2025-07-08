@@ -618,7 +618,7 @@ const Chat: React.FC = () => {
         return;
       }
 
-      // Extract nearest transit locations if available
+      // Extract nearest transit locations if available (flat list)
       const transitLocations = analysisData.nearest_transit || [];
       const center = analysisData.center || mapCoordsForModal || {};
       // Format the analysis for sending to the chat
@@ -629,22 +629,25 @@ const Chat: React.FC = () => {
       let message = `### Location Analysis Results\n\n`;
       message += analysisData.analysis;
 
-      // Add links to Google Maps for each transit location
+      // Add links to Google Maps for each transit location (flat list)
       if (transitLocations.length > 0 && center.lat && center.lng) {
         message += `\n\n**Nearest Transit Locations:**\n`;
         transitLocations.forEach((loc: any) => {
           const gmapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${center.lat},${center.lng}&destination=${loc.lat},${loc.lng}`;
-          message += `- ${
-            loc.type || loc.name
-          }: <a href="${gmapsUrl}" target="_blank">Directions (${
-            loc.distance
-          } m)</a>\n`;
+          let dist = loc.distance_km ? `${loc.distance_km.toFixed(1)} km` : "N/A";
+          let duration = loc.duration_text ? `, ${loc.duration_text}` : "";
+          message += `- ${loc.type ? loc.type.charAt(0).toUpperCase() + loc.type.slice(1) : loc.name}: <a href="${gmapsUrl}" target="_blank">Directions</a> (${dist}${duration})\n`;
         });
+      }
+
+      // Add a direct 'Open on Maps' link for the center
+      if (center.lat && center.lng) {
+        message += `\n[Open on Maps](https://www.google.com/maps/search/?api=1&query=${center.lat},${center.lng})\n`;
       }
 
       message += `\n\n---\n\n`;
       message += `*Analysis based on ${placesCount} places found within ${summary.place_count}m radius. `;
-      message += `Average rating: ${summary.average_rating.toFixed(1)}/5.0*`;
+      message += `Average rating: ${summary.average_rating?.toFixed(1) || "N/A"}/5.0*`;
 
       setMessages((prev) => [
         ...prev,
@@ -820,12 +823,21 @@ const Chat: React.FC = () => {
               coords = { lat: parseFloat(match[1]), lng: parseFloat(match[2]) };
             }
           }
-          const locationMatch = userInput.match(/location\s+([\w\s,.'-]+)/i);
           if (coords) {
             const result = await analyzeLocation(coords.lat, coords.lng);
-            const message =
-              (result.analysis || "No analysis available.") +
+            let message = (result.analysis || "No analysis available.") +
               `<br/><a href="https://www.google.com/maps/search/?api=1&query=${coords.lat},${coords.lng}" target="_blank" rel="noopener noreferrer">Open on Maps</a>`;
+            // If nearest_transit is present, add transit info
+            if (result.nearest_transit && Array.isArray(result.nearest_transit)) {
+              message += `<br/><b>Nearest Transit Locations:</b><ul>`;
+              result.nearest_transit.forEach((loc: any) => {
+                const gmapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${coords.lat},${coords.lng}&destination=${loc.lat},${loc.lng}`;
+                let dist = loc.distance_km ? `${loc.distance_km.toFixed(1)} km` : "N/A";
+                let duration = loc.duration_text ? `, ${loc.duration_text}` : "";
+                message += `<li>${loc.type ? loc.type.charAt(0).toUpperCase() + loc.type.slice(1) : loc.name}: <a href="${gmapsUrl}" target="_blank">Directions</a> (${dist}${duration})</li>`;
+              });
+              message += `</ul>`;
+            }
             setMessages((prev) => {
               const newMsgs = [...prev];
               newMsgs[newMsgs.length - 1] = {
@@ -833,10 +845,6 @@ const Chat: React.FC = () => {
                 content: message,
                 isCached: false,
               };
-              console.log(
-                "[QGPT-UI] [AssistantMsg] setMessages called (coords)",
-                { newMsgs }
-              );
               return newMsgs;
             });
             return;
