@@ -538,7 +538,7 @@ Top place categories:
 
             # Add summary of nearest transit distances for LLM
             if nearest_transit:
-                prompt += "\nNearest transit points and their distances from this location:\n"
+                prompt += "\nNearest transit points and their distances from this location (use these exact values in your summary, do not make up or estimate):\n"
                 for key, label in zip(["airport", "metro", "railway", "bus"], ["Airport", "Metro", "Railway Station", "Bus Station"]):
                     t = nearest_transit.get(key)
                     if t and t.get('distance_km') is not None:
@@ -547,7 +547,7 @@ Top place categories:
                     elif t is None:
                         prompt += f"- Nearest {label}: Not found within search radius.\n"
 
-            prompt += "\nBased on this data, please provide a detailed analysis of this area. Include insights about the type of neighborhood, typical activities, demographic insights if possible, and an overall assessment of the area's character and purpose."
+            prompt += "\nYou must explicitly mention the actual distances to the nearest airport, bus stand, and railway station as provided above. Do not make up or estimate values.\nBased on this data, please provide a detailed analysis of this area. Include insights about the type of neighborhood, typical activities, demographic insights if possible, and an overall assessment of the area's character and purpose."
             try:
                 messages = [
                     ChatMessage(role=MessageRole.SYSTEM, content="You are a location analysis specialist who provides detailed, insightful analysis of geographic areas based on points of interest data."),

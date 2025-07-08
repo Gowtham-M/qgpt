@@ -825,7 +825,7 @@ const Chat: React.FC = () => {
             const result = await analyzeLocation(coords.lat, coords.lng);
             const message =
               (result.analysis || "No analysis available.") +
-              `<br/><a href="#" class="open-on-maps-link" data-lat="${coords.lat}" data-lng="${coords.lng}">Open on Maps</a>`;
+              `<br/><a href="https://www.google.com/maps/search/?api=1&query=${coords.lat},${coords.lng}" target="_blank" rel="noopener noreferrer">Open on Maps</a>`;
             setMessages((prev) => {
               const newMsgs = [...prev];
               newMsgs[newMsgs.length - 1] = {
