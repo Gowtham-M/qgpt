@@ -456,10 +456,18 @@ Please summarize this information for the user in a friendly and clear manner.
                 "railway": ["train_station"],
                 "bus": ["bus_station"]
             }
+            # Use a larger radius for transit search (30km)
+            transit_search_radius = 30000
             for key, types in transit_types.items():
-                logger.info(f"[analyze_location] Searching for nearest {key} with types {types}")
+                logger.info(f"[analyze_location] Searching for nearest {key} with types {types} and radius {transit_search_radius}")
                 try:
-                    transit_places = await self.get_nearby_places(coordinates, types)
+                    # Use a copy of coordinates with 30km radius for transit search
+                    transit_coords = LocationCoordinates(
+                        latitude=coordinates.latitude,
+                        longitude=coordinates.longitude,
+                        radius=transit_search_radius
+                    )
+                    transit_places = await self.get_nearby_places(transit_coords, types)
                     logger.info(f"[analyze_location] Found {len(transit_places) if transit_places else 0} places for {key}")
                     if transit_places:
                         nearest = transit_places[0]
