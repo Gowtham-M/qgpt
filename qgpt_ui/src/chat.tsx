@@ -725,6 +725,22 @@ const Chat: React.FC = () => {
     // Store the user input to display immediately
     const userInput = input.trim();
 
+    // --- OLLAMA LLM-BASED MODE CLASSIFICATION ---
+    // Use Ollama to classify the query and set the mode before further processing
+    let detectedMode = mode;
+    try {
+      const classification = await ollamaClassifyQuery(userInput);
+      // classification.mode should be 'RAG', 'Maps', etc.
+      if (classification && classification.mode && classification.mode !== mode) {
+        setMode(classification.mode);
+        detectedMode = classification.mode;
+        console.log('[QGPT-UI] [DEBUG] Ollama classified mode:', classification.mode);
+      }
+    } catch (err) {
+      console.warn('[QGPT-UI] [WARN] ollamaClassifyQuery failed, falling back to current mode', err);
+    }
+    // --- END OLLAMA LLM-BASED MODE CLASSIFICATION ---
+
     // --- COORDINATE-ONLY DETECTION: force Maps mode if coordinates detected ---
     // Try to extract coordinates from the input (e.g., '17.385044, 78.486671')
     let coords = extractCoordinatesFromText(userInput);
@@ -738,6 +754,52 @@ const Chat: React.FC = () => {
     }
     // Try to match a location query (e.g., 'location hyderabad')
     const locationMatch = userInput.match(/location\s+([\w\s,.'-]+)/i);
+
+    // Helper: check if a string is a question or generic phrase
+    function isLikelyQuestionOrGeneric(str: string) {
+      const q = str.trim().toLowerCase();
+      // Starts with question words or is too short
+      return (
+        q.startsWith("what") ||
+        q.startsWith("how") ||
+        q.startsWith("why") ||
+        q.startsWith("when") ||
+        q.startsWith("where") ||
+        q.startsWith("who") ||
+        q.startsWith("which") ||
+        q.startsWith("is ") ||
+        q.startsWith("are ") ||
+        q.startsWith("do ") ||
+        q.startsWith("does ") ||
+        q.startsWith("can ") ||
+        q.startsWith("could ") ||
+        q.startsWith("would ") ||
+        q.startsWith("should ") ||
+        q.length < 3 // too short to be a location
+      );
+    }
+
+    // Helper: Detect if a 'location ...' query is a follow-up or generic (not a real location)
+    function isNonLocationFollowup(query: string) {
+      // Heuristic: if the query after 'location' is short, a question, or generic, treat as non-location
+      const match = query.match(/location\s+([\w\s,.'-]+)/i);
+      if (!match) return false;
+      const afterLocation = match[1].trim().toLowerCase();
+      // List of generic/question words that indicate a follow-up or non-location
+      const genericPhrases = [
+        'what', 'why', 'how', 'when', 'where', 'who', 'which', 'explain', 'describe', 'infer', 'mean', 'is', 'are', 'do', 'does', 'can', 'could', 'should', 'would', 'tell', 'show', 'give', 'list', 'details', 'info', 'information', 'about', 'this', 'that', 'these', 'those', 'it', 'they', 'he', 'she', 'we', 'you', 'i', 'me', 'my', 'your', 'our', 'their', 'his', 'her', 'its', 'us', 'them', 'something', 'anything', 'nothing', 'everything', 'more', 'less', 'again', 'another', 'other', 'others', 'further', 'furthermore', 'etc', 'etc.'
+      ];
+      // If the phrase is very short or starts with a generic/question word, treat as non-location
+      if (afterLocation.length < 5) return true;
+      for (const phrase of genericPhrases) {
+        if (afterLocation.startsWith(phrase + ' ') || afterLocation === phrase) {
+          return true;
+        }
+      }
+      // If the phrase is a question
+      if (afterLocation.endsWith('?')) return true;
+      return false;
+    }
 
     // If coordinates detected, always trigger Maps mode and analysis
     if (coords) {
@@ -756,14 +818,27 @@ const Chat: React.FC = () => {
         let message = (result.analysis || "No analysis available.") +
           `<br/><a href="https://www.google.com/maps/search/?api=1&query=${coords.lat},${coords.lng}" target="_blank" rel="noopener noreferrer">Open on Maps</a>`;
         if (result.nearest_transit && Array.isArray(result.nearest_transit)) {
-          message += `<br/><b>Nearest Transit Locations:</b><ul>`;
-          result.nearest_transit.forEach((loc: any) => {
-            const gmapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${coords.lat},${coords.lng}&destination=${loc.lat},${loc.lng}`;
-            let dist = loc.distance_km ? `${loc.distance_km.toFixed(1)} km` : "N/A";
-            let duration = loc.duration_text ? `, ${loc.duration_text}` : "";
-            message += `<li>${loc.type ? loc.type.charAt(0).toUpperCase() + loc.type.slice(1) : loc.name}: <a href="${gmapsUrl}" target="_blank">Directions</a> (${dist}${duration})</li>`;
-          });
-          message += `</ul>`;
+          // Group all transit locations by type and show all with distances
+          if (result.nearest_transit && Array.isArray(result.nearest_transit)) {
+            // Group by type (fix TS error with Record<string, any[]>)
+            const grouped: Record<string, any[]> = {};
+            result.nearest_transit.forEach((loc: any) => {
+              const type = (loc.type || 'Other').toLowerCase();
+              if (!grouped[type]) grouped[type] = [];
+              grouped[type].push(loc);
+            });
+            message += `<br/><b>All Transit Locations:</b>`;
+            Object.keys(grouped).forEach((type) => {
+              message += `<br/><u>${type.charAt(0).toUpperCase() + type.slice(1)}s</u><ul>`;
+              grouped[type].forEach((loc: any) => {
+                const gmapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${coords.lat},${coords.lng}&destination=${loc.lat},${loc.lng}`;
+                let dist = loc.distance_km ? `${loc.distance_km.toFixed(1)} km` : "N/A";
+                let duration = loc.duration_text ? `, ${loc.duration_text}` : "";
+                message += `<li>${loc.name || loc.type}: <a href="${gmapsUrl}" target="_blank">Directions</a> (${dist}${duration})</li>`;
+              });
+              message += `</ul>`;
+            });
+          }
         }
         // Replace spinner with assistant message
         setMessages((prev) => {
@@ -777,97 +852,102 @@ const Chat: React.FC = () => {
         });
       }, 10);
       return;
-    } else if (locationMatch) {
-      // If a location query is detected (e.g., 'location hyderabad')
+    } else if (locationMatch && !isNonLocationFollowup(userInput)) {
+      // If a location query is detected (e.g., 'location hyderabad') and it's not a follow-up/generic
       const locationName = locationMatch[1].trim();
-      // Add user message and spinner to chat
-      setMessages((prev) => [
-        ...prev,
-        { role: "user", content: userInput, isCached: false },
-        { role: "assistant", content: '<div className="spinner2"></div>', isCached: false },
-      ]);
-      setInput("");
-      // Call geocoding API and then analyze location after a short delay
-      setTimeout(async () => {
-        const apiKey =
-          process.env.REACT_APP_GOOGLE_MAPS_API_KEY ||
-          "AIzaSyCcxJN30ArOo4yHON6oxSkthLXtT4B_p2o";
-        const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(
-          locationName
-        )}&key=${apiKey}`;
-        const geoResp = await axios.get(geocodeUrl);
-        const geoData = geoResp.data;
-        if (
-          geoData.status === "OK" &&
-          geoData.results &&
-          geoData.results[0]
-        ) {
-          const { lat, lng } = geoData.results[0].geometry.location;
-          const mapsInfo = geoData.results[0];
-          try {
-            // Call backend for location analysis
-            const result = await analyzeLocation(
-              lat,
-              lng,
-              1000,
-              [],
-              undefined,
-              mapsInfo
-            );
-            // Compose assistant message with analysis and Maps link
-            const message =
-              (result.analysis || "No analysis available.") +
-              `<br/><a href="#" class="open-on-maps-link" data-lat="${lat}" data-lng="${lng}">Open on Maps</a>`;
-            // Replace spinner with assistant message
+      // If the locationName is a question or generic, treat as general query
+      if (isLikelyQuestionOrGeneric(locationName)) {
+        // Fall through to general query below
+      } else {
+        // Add user message and spinner to chat
+        setMessages((prev) => [
+          ...prev,
+          { role: "user", content: userInput, isCached: false },
+          { role: "assistant", content: '<div className="spinner2"></div>', isCached: false },
+        ]);
+        setInput("");
+        // Call geocoding API and then analyze location after a short delay
+        setTimeout(async () => {
+          const apiKey =
+            process.env.REACT_APP_GOOGLE_MAPS_API_KEY ||
+            "AIzaSyCcxJN30ArOo4yHON6oxSkthLXtT4B_p2o";
+          const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(
+            locationName
+          )}&key=${apiKey}`;
+          const geoResp = await axios.get(geocodeUrl);
+          const geoData = geoResp.data;
+          if (
+            geoData.status === "OK" &&
+            geoData.results &&
+            geoData.results[0]
+          ) {
+            const { lat, lng } = geoData.results[0].geometry.location;
+            const mapsInfo = geoData.results[0];
+            try {
+              // Call backend for location analysis
+              const result = await analyzeLocation(
+                lat,
+                lng,
+                1000,
+                [],
+                undefined,
+                mapsInfo
+              );
+              // Compose assistant message with analysis and Maps link
+              const message =
+                (result.analysis || "No analysis available.") +
+                `<br/><a href="#" class="open-on-maps-link" data-lat="${lat}" data-lng="${lng}">Open on Maps</a>`;
+              // Replace spinner with assistant message
+              setMessages((prev) => {
+                const newMsgs = [...prev];
+                newMsgs[newMsgs.length - 1] = {
+                  role: "assistant",
+                  content: message,
+                  isCached: false,
+                };
+                console.log(
+                  "[QGPT-UI] [AssistantMsg] setMessages called (geocode)",
+                  { newMsgs }
+                );
+                return newMsgs;
+              });
+            } catch (err) {
+              // Handle backend error
+              setMessages((prev) => {
+                const newMsgs = [...prev];
+                newMsgs[newMsgs.length - 1] = {
+                  role: "assistant",
+                  content: "Error analyzing location with LLM.",
+                  isCached: false,
+                };
+                console.log(
+                  "[QGPT-UI] [AssistantMsg] setMessages called (geocode error)",
+                  { newMsgs }
+                );
+                return newMsgs;
+              });
+            }
+            return;
+          } else {
+            // Handle geocoding failure
             setMessages((prev) => {
               const newMsgs = [...prev];
               newMsgs[newMsgs.length - 1] = {
                 role: "assistant",
-                content: message,
+                content: `Could not find location: ${locationName}`,
                 isCached: false,
               };
               console.log(
-                "[QGPT-UI] [AssistantMsg] setMessages called (geocode)",
+                "[QGPT-UI] [AssistantMsg] setMessages called (location not found)",
                 { newMsgs }
               );
               return newMsgs;
             });
-          } catch (err) {
-            // Handle backend error
-            setMessages((prev) => {
-              const newMsgs = [...prev];
-              newMsgs[newMsgs.length - 1] = {
-                role: "assistant",
-                content: "Error analyzing location with LLM.",
-                isCached: false,
-              };
-              console.log(
-                "[QGPT-UI] [AssistantMsg] setMessages called (geocode error)",
-                { newMsgs }
-              );
-              return newMsgs;
-            });
+            return;
           }
-          return;
-        } else {
-          // Handle geocoding failure
-          setMessages((prev) => {
-            const newMsgs = [...prev];
-            newMsgs[newMsgs.length - 1] = {
-              role: "assistant",
-              content: `Could not find location: ${locationName}`,
-              isCached: false,
-            };
-            console.log(
-              "[QGPT-UI] [AssistantMsg] setMessages called (location not found)",
-              { newMsgs }
-            );
-            return newMsgs;
-          });
-          return;
-        }
-      }, 10);
-      return;
+        }, 10);
+        return;
+      }
     }
     // --- END COORDINATE/LOCATION DETECTION ---
 
