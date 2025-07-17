@@ -402,19 +402,11 @@ const Chat: React.FC = () => {
           isCached: true,
         }));
         setMessages(withCacheFlag);
-        console.log("[QGPT-UI] [DEBUG] Loaded messages from localStorage", {
-          currentChatId,
-          loaded: withCacheFlag,
-        });
       } else {
-        setMessages([]);
-        console.log("[QGPT-UI] [DEBUG] No cached messages, setMessages([])", {
-          currentChatId,
-        });
+        setMessages([]); // Reset messages if no cached messages exist
       }
     } else {
-      setMessages([]);
-      console.log("[QGPT-UI] [DEBUG] No chat selected, setMessages([])");
+      setMessages([]); // Ensure no messages are loaded when no chat is selected
     }
   }, [setMessages, currentChatId]); // Remove mode from dependencies
 
@@ -454,8 +446,6 @@ const Chat: React.FC = () => {
 
   // Auto-scroll whenever messages change
   useEffect(() => {
-    // Log whenever messages state changes
-    console.log("[QGPT-UI] [DEBUG] messages state changed", { messages });
     scrollToBottom();
   }, [messages]);
 
@@ -613,14 +603,13 @@ const Chat: React.FC = () => {
   // Handle Maps analysis results
   const handleLocationAnalyzed = useCallback(
     (analysisData: any) => {
+      // setMapsData(analysisData); // Comment out undefined function
+
       if (!analysisData || !analysisData.analysis) {
         console.error("No analysis data available");
         return;
       }
 
-      // Extract nearest transit locations if available (flat list)
-      const transitLocations = analysisData.nearest_transit || [];
-      const center = analysisData.center || mapCoordsForModal || {};
       // Format the analysis for sending to the chat
       const placesCount = analysisData.places.length;
       const summary = analysisData.summary;
@@ -629,26 +618,11 @@ const Chat: React.FC = () => {
       let message = `### Location Analysis Results\n\n`;
       message += analysisData.analysis;
 
-      // Add links to Google Maps for each transit location (flat list)
-      if (transitLocations.length > 0 && center.lat && center.lng) {
-        message += `\n\n**Nearest Transit Locations:**\n`;
-        transitLocations.forEach((loc: any) => {
-          const gmapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${center.lat},${center.lng}&destination=${loc.lat},${loc.lng}`;
-          let dist = loc.distance_km ? `${loc.distance_km.toFixed(1)} km` : "N/A";
-          let duration = loc.duration_text ? `, ${loc.duration_text}` : "";
-          message += `- ${loc.type ? loc.type.charAt(0).toUpperCase() + loc.type.slice(1) : loc.name}: <a href="${gmapsUrl}" target="_blank">Directions</a> (${dist}${duration})\n`;
-        });
-      }
-
-      // Add a direct 'Open on Maps' link for the center
-      if (center.lat && center.lng) {
-        message += `\n[Open on Maps](https://www.google.com/maps/search/?api=1&query=${center.lat},${center.lng})\n`;
-      }
-
       message += `\n\n---\n\n`;
       message += `*Analysis based on ${placesCount} places found within ${summary.place_count}m radius. `;
-      message += `Average rating: ${summary.average_rating?.toFixed(1) || "N/A"}/5.0*`;
+      message += `Average rating: ${summary.average_rating.toFixed(1)}/5.0*`;
 
+      // Add this message as an assistant message directly to the conversation
       setMessages((prev) => [
         ...prev,
         {
@@ -657,19 +631,15 @@ const Chat: React.FC = () => {
           isCached: false,
         },
       ]);
+
+      // Close the modal
       setShowMapsModal(false);
     },
-    [setMessages, mapCoordsForModal]
+    [setMessages]
   );
 
   // Maps Modal component
   const MapsModal = () => {
-    // Pass transit locations to MapsComponent for marker rendering
-    const transitLocations =
-      (typeof mapsData !== "undefined" &&
-        mapsData &&
-        mapsData.nearest_transit) ||
-      [];
     return (
       <div
         className={`modal ${showMapsModal ? "show" : ""}`}
@@ -684,7 +654,7 @@ const Chat: React.FC = () => {
                 className="btn-close"
                 onClick={() => {
                   setShowMapsModal(false);
-                  setMapCoordsForModal(null);
+                  setMapCoordsForModal(null); // Clear on close
                 }}
                 aria-label="Close"
               ></button>
@@ -695,7 +665,6 @@ const Chat: React.FC = () => {
                 isLoading={mapsLoading}
                 setLoading={setMapsLoading}
                 centerCoords={mapCoordsForModal}
-                transitLocations={transitLocations}
               />
               <div className="text-muted mt-2">
                 <small>
@@ -710,289 +679,71 @@ const Chat: React.FC = () => {
     );
   };
 
-  // Enhanced: Use Ollama to intelligently route queries
-  const handleSendMessageWithMaps = async () => {
-    // Debug log for function entry
-    console.log("[QGPT-UI] [DEBUG] handleSendMessageWithMaps CALLED", {
-      input,
-      messageLoading,
-      currentChatId,
-      messages,
-    });
-    // Prevent sending if input is empty or a message is already loading
+  // Send user query to backend orchestration endpoint for classification and routing
+  const handleUnifiedSend = async () => {
     if (!input.trim() || messageLoading) return;
 
-    // Store the user input to display immediately
     const userInput = input.trim();
-
-    // --- OLLAMA LLM-BASED MODE CLASSIFICATION ---
-    // Use Ollama to classify the query and set the mode before further processing
-    let detectedMode = mode;
-    try {
-      const classification = await ollamaClassifyQuery(userInput);
-      // classification.mode should be 'RAG', 'Maps', etc.
-      if (classification && classification.mode && classification.mode !== mode) {
-        setMode(classification.mode);
-        detectedMode = classification.mode;
-        console.log('[QGPT-UI] [DEBUG] Ollama classified mode:', classification.mode);
-      }
-    } catch (err) {
-      console.warn('[QGPT-UI] [WARN] ollamaClassifyQuery failed, falling back to current mode', err);
-    }
-    // --- END OLLAMA LLM-BASED MODE CLASSIFICATION ---
-
-    // --- COORDINATE-ONLY DETECTION: force Maps mode if coordinates detected ---
-    // Try to extract coordinates from the input (e.g., '17.385044, 78.486671')
-    let coords = extractCoordinatesFromText(userInput);
-    if (!coords) {
-      // Fallback regex for coordinates (comma or space separated)
-      const coordRegex = /([-+]?\d{1,2}\.\d+)[,\s]+([-+]?\d{1,3}\.\d+)/;
-      const match = userInput.match(coordRegex);
-      if (match) {
-        coords = { lat: parseFloat(match[1]), lng: parseFloat(match[2]) };
-      }
-    }
-    // Try to match a location query (e.g., 'location hyderabad')
-    const locationMatch = userInput.match(/location\s+([\w\s,.'-]+)/i);
-
-    // Helper: check if a string is a question or generic phrase
-    function isLikelyQuestionOrGeneric(str: string) {
-      const q = str.trim().toLowerCase();
-      // Starts with question words or is too short
-      return (
-        q.startsWith("what") ||
-        q.startsWith("how") ||
-        q.startsWith("why") ||
-        q.startsWith("when") ||
-        q.startsWith("where") ||
-        q.startsWith("who") ||
-        q.startsWith("which") ||
-        q.startsWith("is ") ||
-        q.startsWith("are ") ||
-        q.startsWith("do ") ||
-        q.startsWith("does ") ||
-        q.startsWith("can ") ||
-        q.startsWith("could ") ||
-        q.startsWith("would ") ||
-        q.startsWith("should ") ||
-        q.length < 3 // too short to be a location
-      );
-    }
-
-    // Helper: Detect if a 'location ...' query is a follow-up or generic (not a real location)
-    function isNonLocationFollowup(query: string) {
-      // Heuristic: if the query after 'location' is short, a question, or generic, treat as non-location
-      const match = query.match(/location\s+([\w\s,.'-]+)/i);
-      if (!match) return false;
-      const afterLocation = match[1].trim().toLowerCase();
-      // List of generic/question words that indicate a follow-up or non-location
-      const genericPhrases = [
-        'what', 'why', 'how', 'when', 'where', 'who', 'which', 'explain', 'describe', 'infer', 'mean', 'is', 'are', 'do', 'does', 'can', 'could', 'should', 'would', 'tell', 'show', 'give', 'list', 'details', 'info', 'information', 'about', 'this', 'that', 'these', 'those', 'it', 'they', 'he', 'she', 'we', 'you', 'i', 'me', 'my', 'your', 'our', 'their', 'his', 'her', 'its', 'us', 'them', 'something', 'anything', 'nothing', 'everything', 'more', 'less', 'again', 'another', 'other', 'others', 'further', 'furthermore', 'etc', 'etc.'
-      ];
-      // If the phrase is very short or starts with a generic/question word, treat as non-location
-      if (afterLocation.length < 5) return true;
-      for (const phrase of genericPhrases) {
-        if (afterLocation.startsWith(phrase + ' ') || afterLocation === phrase) {
-          return true;
-        }
-      }
-      // If the phrase is a question
-      if (afterLocation.endsWith('?')) return true;
-      return false;
-    }
-
-    // If coordinates detected, always trigger Maps mode and analysis
-    if (coords) {
-      setMode("Maps");
-      // Add user message and spinner to chat
-      setMessages((prev) => [
-        ...prev,
-        { role: "user", content: userInput, isCached: false },
-        { role: "assistant", content: '<div className="spinner2"></div>', isCached: false },
-      ]);
-      setInput("");
-      // Call backend for location analysis after a short delay
-      setTimeout(async () => {
-        const result = await analyzeLocation(coords.lat, coords.lng);
-        // Compose assistant message with analysis and Google Maps links
-        let message = (result.analysis || "No analysis available.") +
-          `<br/><a href="https://www.google.com/maps/search/?api=1&query=${coords.lat},${coords.lng}" target="_blank" rel="noopener noreferrer">Open on Maps</a>`;
-        if (result.nearest_transit && Array.isArray(result.nearest_transit)) {
-          // Group all transit locations by type and show all with distances
-          if (result.nearest_transit && Array.isArray(result.nearest_transit)) {
-            // Group by type (fix TS error with Record<string, any[]>)
-            const grouped: Record<string, any[]> = {};
-            result.nearest_transit.forEach((loc: any) => {
-              const type = (loc.type || 'Other').toLowerCase();
-              if (!grouped[type]) grouped[type] = [];
-              grouped[type].push(loc);
-            });
-            message += `<br/><b>All Transit Locations:</b>`;
-            Object.keys(grouped).forEach((type) => {
-              message += `<br/><u>${type.charAt(0).toUpperCase() + type.slice(1)}s</u><ul>`;
-              grouped[type].forEach((loc: any) => {
-                const gmapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${coords.lat},${coords.lng}&destination=${loc.lat},${loc.lng}`;
-                let dist = loc.distance_km ? `${loc.distance_km.toFixed(1)} km` : "N/A";
-                let duration = loc.duration_text ? `, ${loc.duration_text}` : "";
-                message += `<li>${loc.name || loc.type}: <a href="${gmapsUrl}" target="_blank">Directions</a> (${dist}${duration})</li>`;
-              });
-              message += `</ul>`;
-            });
-          }
-        }
-        // Replace spinner with assistant message
-        setMessages((prev) => {
-          const newMsgs = [...prev];
-          newMsgs[newMsgs.length - 1] = {
-            role: "assistant",
-            content: message,
-            isCached: false,
-          };
-          return newMsgs;
-        });
-      }, 10);
-      return;
-    } else if (locationMatch && !isNonLocationFollowup(userInput)) {
-      // If a location query is detected (e.g., 'location hyderabad') and it's not a follow-up/generic
-      const locationName = locationMatch[1].trim();
-      // If the locationName is a question or generic, treat as general query
-      if (isLikelyQuestionOrGeneric(locationName)) {
-        // Fall through to general query below
-      } else {
-        // Add user message and spinner to chat
-        setMessages((prev) => [
-          ...prev,
-          { role: "user", content: userInput, isCached: false },
-          { role: "assistant", content: '<div className="spinner2"></div>', isCached: false },
-        ]);
-        setInput("");
-        // Call geocoding API and then analyze location after a short delay
-        setTimeout(async () => {
-          const apiKey =
-            process.env.REACT_APP_GOOGLE_MAPS_API_KEY ||
-            "AIzaSyCcxJN30ArOo4yHON6oxSkthLXtT4B_p2o";
-          const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(
-            locationName
-          )}&key=${apiKey}`;
-          const geoResp = await axios.get(geocodeUrl);
-          const geoData = geoResp.data;
-          if (
-            geoData.status === "OK" &&
-            geoData.results &&
-            geoData.results[0]
-          ) {
-            const { lat, lng } = geoData.results[0].geometry.location;
-            const mapsInfo = geoData.results[0];
-            try {
-              // Call backend for location analysis
-              const result = await analyzeLocation(
-                lat,
-                lng,
-                1000,
-                [],
-                undefined,
-                mapsInfo
-              );
-              // Compose assistant message with analysis and Maps link
-              const message =
-                (result.analysis || "No analysis available.") +
-                `<br/><a href="#" class="open-on-maps-link" data-lat="${lat}" data-lng="${lng}">Open on Maps</a>`;
-              // Replace spinner with assistant message
-              setMessages((prev) => {
-                const newMsgs = [...prev];
-                newMsgs[newMsgs.length - 1] = {
-                  role: "assistant",
-                  content: message,
-                  isCached: false,
-                };
-                console.log(
-                  "[QGPT-UI] [AssistantMsg] setMessages called (geocode)",
-                  { newMsgs }
-                );
-                return newMsgs;
-              });
-            } catch (err) {
-              // Handle backend error
-              setMessages((prev) => {
-                const newMsgs = [...prev];
-                newMsgs[newMsgs.length - 1] = {
-                  role: "assistant",
-                  content: "Error analyzing location with LLM.",
-                  isCached: false,
-                };
-                console.log(
-                  "[QGPT-UI] [AssistantMsg] setMessages called (geocode error)",
-                  { newMsgs }
-                );
-                return newMsgs;
-              });
-            }
-            return;
-          } else {
-            // Handle geocoding failure
-            setMessages((prev) => {
-              const newMsgs = [...prev];
-              newMsgs[newMsgs.length - 1] = {
-                role: "assistant",
-                content: `Could not find location: ${locationName}`,
-                isCached: false,
-              };
-              console.log(
-                "[QGPT-UI] [AssistantMsg] setMessages called (location not found)",
-                { newMsgs }
-              );
-              return newMsgs;
-            });
-            return;
-          }
-        }, 10);
-        return;
-      }
-    }
-    // --- END COORDINATE/LOCATION DETECTION ---
-
-    // Always add user message and spinner for general queries (RAG/Maps)
     setMessages((prev) => [
       ...prev,
       { role: "user", content: userInput, isCached: false },
-      { role: "assistant", content: '<div className="spinner2"></div>', isCached: false },
     ]);
     setInput("");
+
+    // Add loading indicator
+    setTimeout(() => {
+      setMessages((prev) => {
+        const lastMsg = prev[prev.length - 1];
+        if (
+          lastMsg?.role === "assistant" &&
+          lastMsg?.content.includes("spinner2")
+        ) {
+          return prev;
+        }
+        return [
+          ...prev,
+          {
+            role: "assistant",
+            content: '<div className="spinner2"></div>',
+            isCached: false,
+          },
+        ];
+      });
+    }, 10);
+
     try {
-      // Call backend for general query analysis (RAG/Maps)
-      const result = await analyzeMapsQuery(userInput);
-      const message = result.analysis || "No analysis available.";
-      // Replace spinner or add assistant message
+      // Call backend orchestration endpoint
+      const response = await axios.post("/v1/query/orchestrate", {
+        query: userInput,
+        // Optionally add: chat_id, files, system_prompt, etc. if needed
+      });
+      const data = response.data;
+      // Optionally update mode if backend returns it
+      if (data.mode) setMode(data.mode);
+      // Replace loading indicator with backend response
       setMessages((prev) => {
         const newMsgs = [...prev];
         newMsgs[newMsgs.length - 1] = {
           role: "assistant",
-          content: message,
+          content: data.response || "No response from backend.",
           isCached: false,
         };
-        console.log(
-          "[QGPT-UI] [AssistantMsg] setMessages called (maps query)",
-          { newMsgs }
-        );
         return newMsgs;
       });
-    } catch (err) {
-      // Handle backend error for general query
+    } catch (error: any) {
       setMessages((prev) => {
         const newMsgs = [...prev];
         newMsgs[newMsgs.length - 1] = {
           role: "assistant",
-          content: "Error analyzing query for maps.",
+          content:
+            error?.response?.data?.detail ||
+            error?.message ||
+            "Error communicating with backend.",
           isCached: false,
         };
-        console.log(
-          "[QGPT-UI] [AssistantMsg] setMessages called (maps query error)",
-          { newMsgs }
-        );
         return newMsgs;
       });
     }
-    return;
   };
 
   return (
@@ -1046,9 +797,7 @@ const Chat: React.FC = () => {
               onChange={(e) => handleModeChange(e.target.value)}
               disabled={messageLoading}
             >
-              <option value="RAG" className="dropdown-options">
-                RAG Mode
-              </option>
+              <option value="RAG">RAG Mode</option>
               <option value="Basic">Basic Chat</option>
               <option value="Search">Search Mode</option>
               <option value="Summarize">Summarize</option>
@@ -1412,7 +1161,7 @@ const Chat: React.FC = () => {
                     onKeyDown={(e) => {
                       if (e.key === "Enter" && !e.shiftKey) {
                         e.preventDefault();
-                        console.log("[QGPT-UI] [Input] Enter pressed", {
+                        console.log("Enter pressed", {
                           currentChatId,
                           input: input.trim(),
                           messageLoading,
@@ -1424,23 +1173,16 @@ const Chat: React.FC = () => {
                               .then(() => {
                                 // Use setTimeout to ensure state has updated
                                 setTimeout(() => {
-                                  console.log(
-                                    "[QGPT-UI] [Input] handleSendMessageWithMaps after new chat"
-                                  );
-                                  handleSendMessageWithMaps().catch(
-                                    console.error
-                                  );
+                          handleUnifiedSend().catch(console.error);
                                 }, 50);
                               })
                               .catch(console.error);
                           } else {
-                            console.log("[QGPT-UI] [Input] Sending message...");
-                            handleSendMessageWithMaps().catch(console.error);
+                            console.log("Sending message...");
+                            handleUnifiedSend().catch(console.error);
                           }
                         } else {
-                          console.log(
-                            "[QGPT-UI] [Input] Message not sent - conditions not met"
-                          );
+                          console.log("Message not sent - conditions not met");
                         }
                       }
                     }}
@@ -1480,20 +1222,12 @@ const Chat: React.FC = () => {
                               .then(() => {
                                 // Use setTimeout to ensure state has updated
                                 setTimeout(() => {
-                                  console.log(
-                                    "[QGPT-UI] [SendBtn] handleSendMessageWithMaps after new chat"
-                                  );
-                                  handleSendMessageWithMaps().catch(
-                                    console.error
-                                  );
+                                  handleUnifiedSend().catch(console.error);
                                 }, 50);
                               })
                               .catch(console.error);
                           } else {
-                            console.log(
-                              "[QGPT-UI] [SendBtn] Sending message..."
-                            );
-                            handleSendMessageWithMaps().catch(console.error);
+                            handleUnifiedSend().catch(console.error);
                           }
                         }
                       }}
@@ -1643,7 +1377,7 @@ const Chat: React.FC = () => {
           <p className="footer-logo-text">Quantum Data Leap GPT</p>
         </div>
         <a className="footer-link" href="https://www.fisecglobal.net">
-          Powered by Quantum Data Leap
+          Powered by QuantumData Leap
         </a>
       </div>
 

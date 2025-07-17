@@ -1,3 +1,46 @@
+@query_router.post("/orchestrate", summary="Orchestrate query: classify and route to Maps or RAG", response_model=Dict[str, Any])
+async def orchestrate_query(request: QueryAnalysisRequest, req: Request):
+    """
+    Orchestrate a user query: classify with LLM, then route to Maps or RAG and return the response.
+    """
+    try:
+        injector = req.state.injector
+        query_service = injector.get(QueryRoutingService)
+        # 1. Classify the query
+        analysis = query_service.analyze_query(request)
+        mode = analysis.recommended_mode
+        # 2. Route to the correct backend logic
+        if mode == "Maps":
+            # Import here to avoid circular imports
+            from qgpt_core.server.maps.maps_router import MapsService
+            # You may need to adapt this to your actual MapsService instantiation
+            maps_service = injector.get(MapsService)
+            # Try to extract coordinates or location from analysis.extracted_data
+            coords = None
+            location_name = None
+            if analysis.extracted_data:
+                coords = analysis.extracted_data.get("coordinates")
+                location_name = analysis.extracted_data.get("location_name")
+            # Prefer coordinates if available
+            if coords and isinstance(coords, list) and len(coords) == 2:
+                lat, lng = coords
+                maps_result = await maps_service.analyze_location(lat, lng)
+            elif location_name:
+                maps_result = await maps_service.analyze_location_by_name(location_name)
+            else:
+                # Fallback: just pass the query to maps analysis
+                maps_result = await maps_service.analyze_query(request.query)
+            return {"mode": "Maps", "analysis": analysis.reasoning, "result": maps_result}
+        else:
+            # Default: RAG or other mode
+            from qgpt_core.server.chat.chat_service import ChatService
+            chat_service = injector.get(ChatService)
+            # You may want to pass context_files, messages, etc.
+            rag_result = await chat_service.handle_query(request.query, request.context_files or [], request.messages or [])
+            return {"mode": mode, "analysis": analysis.reasoning, "result": rag_result}
+    except Exception as e:
+        logger.error(f"Error in orchestration endpoint: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error in orchestration: {str(e)}")
 """
 Query Routing Service Module - Uses Ollama LLM to intelligently route queries to appropriate endpoints
 """

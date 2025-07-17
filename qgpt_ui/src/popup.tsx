@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Modal, Button, Form, Row, Col } from "react-bootstrap";
 import { FiMonitor, FiThermometer, FiMaximize } from "react-icons/fi";
+import "./Modal.css";
 
 export interface QGPTSettings {
   llmModel: string;
@@ -127,16 +128,23 @@ const QGPTSettingsModal: React.FC<QGPTSettingsModalProps> = ({
   );
 
   return (
-    <Modal show={show} onHide={onHide} centered backdrop="static" size="lg">
-      <Modal.Header closeButton style={{ borderBottom: "3.5px solid #c9c9c9" }}>
-        <Modal.Title className="w-100 text-center">QGPT Settings</Modal.Title>
+    <Modal
+      show={show}
+      onHide={onHide}
+      centered
+      backdrop="static"
+      size="lg"
+      className="qgpt-settings-modal"
+    >
+      <Modal.Header closeButton>
+        <Modal.Title>QGPT Settings</Modal.Title>
       </Modal.Header>
       <Modal.Body>
         <Form>
           {/* LLM Model Selection from API */}
           <Form.Group controlId="llmModel">
-            <Form.Label className="fw-bold">
-              <FiMonitor style={{ marginRight: "8px" }} />
+            <Form.Label>
+              <FiMonitor />
               LLM Model
             </Form.Label>
             <Form.Select
@@ -152,8 +160,11 @@ const QGPTSettingsModal: React.FC<QGPTSettingsModalProps> = ({
           </Form.Group>
 
           {/* Embedding Model Selection */}
-          <Form.Group controlId="embeddingModel" className="mt-4">
-            <Form.Label className="fw-bold">Embedding Model</Form.Label>
+          <Form.Group controlId="embeddingModel">
+            <Form.Label>
+              <FiMonitor />
+              Embedding Model
+            </Form.Label>
             <Form.Select
               value={embeddingModel}
               onChange={(e) => setEmbeddingModel(e.target.value)}
@@ -224,9 +235,7 @@ const QGPTSettingsModal: React.FC<QGPTSettingsModalProps> = ({
                   value={sizeValue}
                   onChange={(e) => setSizeValue(parseInt(e.target.value))}
                 />
-              </Col>
-              <Col xs={12}>
-                <div className="d-flex justify-content-between mt-1">
+                <div className="slider-labels">
                   {Object.entries(sizeMapping).map(([num, label]) => (
                     <span key={num}>{label}</span>
                   ))}
@@ -236,17 +245,11 @@ const QGPTSettingsModal: React.FC<QGPTSettingsModalProps> = ({
           </Form.Group>
         </Form>
       </Modal.Body>
-      <Modal.Footer className="justify-content-end">
+      <Modal.Footer>
         <Button variant="secondary" onClick={onHide}>
           Cancel
         </Button>
-        <Button
-          style={{
-            backgroundColor: "rgb(74, 81, 142)",
-            borderColor: "rgb(64, 71, 126)",
-          }}
-          onClick={handleSave}
-        >
+        <Button variant="primary" onClick={handleSave}>
           Save Settings
         </Button>
       </Modal.Footer>

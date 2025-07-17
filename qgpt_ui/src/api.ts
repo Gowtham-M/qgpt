@@ -1,5 +1,5 @@
 import axios, { AxiosRequestConfig } from "axios";
-import { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 
 // =====================================
 // API FUNCTIONS
@@ -414,6 +414,7 @@ export const useChatHandlers = () => {
 
   // Loading states for file operations and message sending
   const [fileLoading, setFileLoading] = useState(false);
+  const [fileUploading, setFileUploading] = useState(false);
   const [messageLoading, setMessageLoading] = useState(false);
 
   // Ref for axios cancellation token
@@ -440,26 +441,48 @@ export const useChatHandlers = () => {
 
 
 
-  const handleSendMessage = async (query?: string) => {
+  const handleSendMessage = async (query?: string, skipUserMessage?: boolean) => {
     const userQuery = query !== undefined ? query : input;
     if (!userQuery.trim() || messageLoading) return;
     // if (mode !== "Basic" && files.length === 0) {
     //   alert("Please upload a file first.");
     //   return;
     // }
-    setInput("");
+    
+    // Only clear input if we're not skipping the user message (meaning this is a fresh call)
+    if (!skipUserMessage) {
+      setInput("");
+    }
 
-    setMessages((prev) => [
-      ...prev,
-      { role: "user", content: userQuery, isCached: false },
-      { role: "assistant", content: '<div className="spinner2"></div>', isCached: false },
-    ]);
+    // Only add user message and loading indicator if not skipping
+    if (!skipUserMessage) {
+      setMessages((prev) => [
+        ...prev,
+        { role: "user", content: userQuery, isCached: false },
+        { role: "assistant", content: '<div className="spinner2"></div>', isCached: false },
+      ]);
+    } else {
+      // Just add the loading indicator since user message was already added
+      setMessages((prev) => {
+        // Replace the existing loading indicator if it exists
+        const newMsgs = [...prev];
+        if (newMsgs[newMsgs.length - 1]?.role === "assistant" && 
+            newMsgs[newMsgs.length - 1]?.content.includes('spinner2')) {
+          // Loading indicator already exists, don't add another
+          return newMsgs;
+        }
+        return [
+          ...newMsgs,
+          { role: "assistant", content: '<div className="spinner2"></div>', isCached: false },
+        ];
+      });
+    }
 
     setMessageLoading(true);
     messageCancelTokenRef.current = axios.CancelToken.source();
 
     const fileIDsToUse =
-      selectedFiles.length === 0 ? files.map((file:any) => file.doc_id) : selectedFiles;
+      selectedFiles.length === 0 ? files.map((file) => file.doc_id) : selectedFiles;
 
     // Preserve only the last 20 messages as context, excluding the retried query if needed
     const fullHistory: ChatMessage[] = [...messages, { role: "user", content: userQuery }];
@@ -632,8 +655,9 @@ export const useChatHandlers = () => {
   // ----------------------------
   // Handler: change chat mode
   // ----------------------------
-  const handleModeChange = (newMode: string) => {
+  const handleModeChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
     if (messageLoading) return;
+    const newMode = event.target.value;
     setMode(newMode);
     // Preserve full history when changing modes
     setMessages((prevMessages) => [...prevMessages]);
@@ -709,14 +733,14 @@ export const useChatHandlers = () => {
       const file = e.target.files[0];
       setFileToUpload(file);
       try {
-        setFileLoading(true);
+        setFileUploading(true);
         await uploadFile(file);
         setFileToUpload(null);
         await refreshFiles();
       } catch (error) {
         console.error("Error uploading file:", error);
       } finally {
-        setFileLoading(false);
+        setFileUploading(false);
       }
     }
   };
@@ -984,6 +1008,7 @@ export const useChatHandlers = () => {
     selectedFiles,
     fileInputRef,
     fileLoading,
+    fileUploading,
     messageLoading,
     sidebarLeftHidden,
     sidebarRightHidden,

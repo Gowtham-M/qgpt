@@ -1,5 +1,5 @@
-import React, { useState, useCallback, useEffect } from "react";
-import { GoogleMap, useJsApiLoader, Marker, DirectionsRenderer } from "@react-google-maps/api";
+import React, { useState, useCallback } from "react";
+import { GoogleMap, useJsApiLoader, Marker } from "@react-google-maps/api";
 import { analyzeLocation } from "./api.ts";
 import ReactShowdown from "react-showdown";
 
@@ -19,8 +19,7 @@ interface MapsComponentProps {
   onLocationAnalyzed: (analysisData: any) => void;
   isLoading: boolean;
   setLoading: (isLoading: boolean) => void;
-  centerCoords?: LatLngLiteral | null;
-  transitLocations?: Array<{ lat: number; lng: number; name?: string }>;// Add transitLocations prop
+  centerCoords?: LatLngLiteral | null; // NEW PROP
 }
 
 interface LatLngLiteral {
@@ -43,8 +42,7 @@ function MapsComponent({
   onLocationAnalyzed,
   isLoading,
   setLoading,
-  centerCoords,
-  transitLocations = [], // default empty array
+  centerCoords, // NEW PROP
 }: MapsComponentProps) {
   const [libraries] = useState<string[]>(["places"]);
   const [center, setCenter] = useState<LatLngLiteral>({
@@ -59,7 +57,6 @@ function MapsComponent({
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(
     null
   );
-  const [directionsList, setDirectionsList] = useState<any[]>([]);
   const { isLoaded } = useJsApiLoader({
     id: "google-map-script",
     googleMapsApiKey:
@@ -143,42 +140,6 @@ function MapsComponent({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [centerCoords, center.lat, center.lng, mapInstance]);
 
-  // Fetch directions for all transit locations when center or transitLocations change
-  useEffect(() => {
-    if (!centerCoords || !transitLocations || transitLocations.length === 0) {
-      setDirectionsList([]);
-      return;
-    }
-    let isCancelled = false;
-    const service = new window.google.maps.DirectionsService();
-    const promises = transitLocations.map((loc) => {
-      return new Promise((resolve) => {
-        service.route(
-          {
-            origin: centerCoords,
-            destination: { lat: loc.lat, lng: loc.lng },
-            travelMode: window.google.maps.TravelMode.DRIVING,
-          },
-          (result: any, status: string) => {
-            if (status === "OK") {
-              resolve(result);
-            } else {
-              resolve(null);
-            }
-          }
-        );
-      });
-    });
-    Promise.all(promises).then((results) => {
-      if (!isCancelled) {
-        setDirectionsList(results.filter((r) => r));
-      }
-    });
-    return () => {
-      isCancelled = true;
-    };
-  }, [centerCoords, transitLocations]);
-
   return isLoaded ? (
     <div className="maps-container">
       <div className="maps-controls mb-3">
@@ -234,14 +195,6 @@ function MapsComponent({
         onLoad={onMapLoad}
       >
         {markerPosition && <Marker position={markerPosition} />}
-        {/* Render all routes as DirectionsRenderer */}
-        {centerCoords && directionsList.map((dir, idx) => (
-          <DirectionsRenderer
-            key={idx}
-            directions={dir}
-            options={{ suppressMarkers: false, polylineOptions: { strokeColor: '#4285F4', strokeWeight: 4 } }}
-          />
-        ))}
       </GoogleMap>
 
       <div className="mt-3">

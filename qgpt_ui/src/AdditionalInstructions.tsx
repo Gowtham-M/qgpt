@@ -44,12 +44,12 @@ const AdditionalInstructions: React.FC<AdditionalInstructionsProps> = ({
     setSystemPromptInput(newInput);
     setShowDropdown(false); // Close dropdown after selection
   };
-  console.log(prompts)
+
 
   return (
-    <div className="position-relative">
+    <div className="additional-instructions-wrapper curvy-chat-input">
       <textarea
-        className="form-control"
+        className="form-control curvy-textarea"
         placeholder="Enter Additional Instructions..."
         rows={3}
         value={systemPromptInput}
@@ -60,7 +60,10 @@ const AdditionalInstructions: React.FC<AdditionalInstructionsProps> = ({
         <Dropdown className="position-absolute w-100" show>
           <Dropdown.Menu className="w-100">
             {filteredPrompts.map((prompt) => (
-              <Dropdown.Item key={prompt.id} onClick={() => insertPrompt(prompt)}>
+              <Dropdown.Item
+                key={prompt.id}
+                onClick={() => insertPrompt(prompt)}
+              >
                 {prompt.path}
               </Dropdown.Item>
             ))}
